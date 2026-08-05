@@ -7,12 +7,12 @@ class Settings(BaseSettings):
     """Application configuration.
 
     Values are read from environment variables or a .env file located
-    next to this file.  All fields have sensible defaults so the app
-    runs out-of-the-box without any configuration.
+    at the project root (one directory above backend/).  All fields have
+    sensible defaults so the app runs out-of-the-box without any configuration.
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file="../.env",
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Path is relative to the backend/ working directory.
     database_url: str = "sqlite:///../database/pulldex.db"
+
+    # ------------------------------------------------------------------ #
+    # External APIs                                                        #
+    # ------------------------------------------------------------------ #
+    pokemon_tcg_api_key: str | None = None
 
     # ------------------------------------------------------------------ #
     # CORS                                                                 #
