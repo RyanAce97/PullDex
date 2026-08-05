@@ -75,3 +75,26 @@ class PokeApiClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def get_pokemon_species(self, name: str) -> dict:
+        """Fetch detail for a single Pokémon species from /pokemon-species/{name}.
+
+        Args:
+            name: The species name or national dex number, e.g. 'bulbasaur' or '1'.
+
+        Returns:
+            Parsed JSON response dict, e.g.:
+            {
+                "id": 1,
+                "name": "bulbasaur",
+                "generation": {"name": "generation-i", "url": "..."},
+                ...
+            }
+
+        Raises:
+            httpx.HTTPStatusError: if the API returns a 4xx or 5xx response.
+            httpx.TimeoutException:  if the request exceeds the timeout.
+        """
+        response = self._client.get(f"pokemon-species/{name}")
+        response.raise_for_status()
+        return response.json()
