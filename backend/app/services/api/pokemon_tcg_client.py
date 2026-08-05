@@ -50,10 +50,11 @@ class PokemonTCGClient:
     # Endpoints
     # ------------------------------------------------------------------
 
-    def get_cards(self, page_size: int = 10) -> dict:
+    def get_cards(self, page: int = 1, page_size: int = 10) -> dict:
         """Fetch a page of cards from /cards.
 
         Args:
+            page:      1-based page number.
             page_size: Number of cards to return per page.
 
         Returns:
@@ -72,12 +73,12 @@ class PokemonTCGClient:
         """
         response = self._client.get(
             "cards",
-            params={"pageSize": page_size},
+            params={"page": page, "pageSize": page_size},
         )
         response.raise_for_status()
         return response.json()
 
-    def get_sets(self, page: int = 1, page_size: int = 50) -> dict:
+    def get_sets(self, page: int = 1, page_size: int = 250) -> dict:
         """Fetch a page of sets from /sets.
 
         Args:
