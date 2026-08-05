@@ -12,10 +12,10 @@ from sqlmodel import SQLModel
 from app.config import settings
 
 # ---------------------------------------------------------------------------
-# Import all models here so their metadata is registered with SQLModel.
-# Add new model imports beneath this comment as they are created.
+# Import all models so their metadata is registered with SQLModel.
+# This is required for `alembic revision --autogenerate` to detect tables.
 # ---------------------------------------------------------------------------
-# from app.models import ...  # noqa: F401  (uncomment as models are added)
+import app.models  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Alembic Config object — gives access to values in alembic.ini.
