@@ -76,3 +76,40 @@ class PokemonTCGClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def get_sets(self, page: int = 1, page_size: int = 50) -> dict:
+        """Fetch a page of sets from /sets.
+
+        Args:
+            page:      1-based page number.
+            page_size: Number of sets to return per page (max 50).
+
+        Returns:
+            Parsed JSON response dict, e.g.:
+            {
+                "data": [
+                    {
+                        "id": "sv1",
+                        "name": "Scarlet & Violet",
+                        "series": "Scarlet & Violet",
+                        "releaseDate": "2023/03/31",
+                        ...
+                    },
+                    ...
+                ],
+                "page": 1,
+                "pageSize": 50,
+                "count": 50,
+                "totalCount": 163
+            }
+
+        Raises:
+            httpx.HTTPStatusError: if the API returns a 4xx or 5xx response.
+            httpx.TimeoutException:  if the request exceeds the timeout.
+        """
+        response = self._client.get(
+            "sets",
+            params={"page": page, "pageSize": page_size},
+        )
+        response.raise_for_status()
+        return response.json()
