@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from pathlib import Path
 
 from sqlmodel import SQLModel, create_engine, Session
@@ -40,5 +41,24 @@ def create_db_and_tables() -> None:
 
 def get_session():
     """FastAPI dependency that yields a database session per request."""
+    with Session(engine) as session:
+        yield session
+
+
+@contextmanager
+def get_session_context():
+    """Context manager that yields a database session for use in scripts.
+
+    Use this outside of FastAPI (e.g. importer scripts, CLI tools) where
+    the dependency-injection system is not available.
+
+    Example::
+
+        from app.database import get_session_context
+
+        with get_session_context() as session:
+            session.add(some_record)
+            session.commit()
+    """
     with Session(engine) as session:
         yield session
