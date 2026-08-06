@@ -5,6 +5,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Pokedex } from "./pages/Pokedex";
 import { RecommendationDetail } from "./pages/RecommendationDetail";
 import { Recommendations } from "./pages/Recommendations";
+import { SpeciesDetail } from "./pages/SpeciesDetail";
 
 export function App() {
   return (
@@ -14,6 +15,7 @@ export function App() {
         <Route path="recommendations" element={<Recommendations />} />
         <Route path="recommendations/:setId" element={<RecommendationDetail />} />
         <Route path="pokedex" element={<Pokedex />} />
+        <Route path="pokedex/:speciesId" element={<SpeciesDetail />} />
       </Route>
     </Routes>
   );

@@ -11,6 +11,10 @@ export const queryKeys = {
 
   species: ["species"] as const,
 
+  collection: ["collection"] as const,
+
+  cardsByDex: (dexNumber: number) => ["cards", "by-dex", dexNumber] as const,
+
   recommendations: (limit: number) => ["recommendations", limit] as const,
   recommendationSpecies: (setId: number) =>
     ["recommendations", setId, "species"] as const,

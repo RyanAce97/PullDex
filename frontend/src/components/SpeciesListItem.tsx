@@ -3,16 +3,30 @@ import type { PokemonSpeciesRead } from "../types";
 interface SpeciesListItemProps {
   species: PokemonSpeciesRead;
   owned: boolean;
+  onClick?: () => void;
 }
 
-export function SpeciesListItem({ species, owned }: SpeciesListItemProps) {
+export function SpeciesListItem({ species, owned, onClick }: SpeciesListItemProps) {
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg border p-3 ${
+      className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
         owned
           ? "bg-green-50 border-green-200"
           : "bg-white border-gray-200"
-      }`}
+      } ${onClick ? "cursor-pointer hover:shadow-md hover:border-indigo-300" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
       <span
         className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-mono font-bold ${
