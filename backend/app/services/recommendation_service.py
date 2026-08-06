@@ -24,14 +24,16 @@ def get_set_recommendations(
     """Return sets ranked by how many missing species they can provide.
 
     Only includes sets that contain at least one card for a missing species.
+    Each result includes computed display fields (rank, coverage, density).
 
     Args:
         session: An open SQLModel Session.
         limit:   Maximum number of recommendations to return.
 
     Returns:
-        A list of dicts with keys: set_id, api_set_id, set_name, series,
-        release_date, missing_species_count, total_cards_in_set.
+        A list of dicts with keys: rank, set_id, api_set_id, set_name, series,
+        release_date, missing_species_count, total_species_in_set,
+        total_cards_in_set, coverage_percentage, missing_species_density_percentage.
     """
     owned_ids = get_owned_species_ids(session)
 
@@ -40,25 +42,37 @@ def get_set_recommendations(
     all_species_ids = set(session.exec(all_species_ids_stmt).all())
 
     missing_ids = all_species_ids - owned_ids
+    total_missing = len(missing_ids)
 
     if not missing_ids:
         return []
 
-    # Count distinct missing species per set.
+    # Count distinct missing species per set (primary score).
     missing_count = (
         func.count(Card.pokemon_species_id.distinct())  # type: ignore[union-attr]
         .label("missing_species_count")
     )
 
-    # Total cards in each set (for tie-breaking by density).
-    # We use a subquery for total card count so the WHERE filter on missing
-    # species doesn't affect it.
+    # Subquery: total cards in each set (for tie-breaking by density).
+    # Separate subquery so the WHERE filter on missing species doesn't affect it.
     total_cards_subq = (
         select(
             Card.set_id,
             func.count(Card.id).label("total_cards_in_set"),
         )
         .where(Card.set_id.is_not(None))  # type: ignore[union-attr]
+        .group_by(Card.set_id)
+        .subquery()
+    )
+
+    # Subquery: total distinct species in each set (including owned ones).
+    total_species_subq = (
+        select(
+            Card.set_id,
+            func.count(Card.pokemon_species_id.distinct()).label("total_species_in_set"),  # type: ignore[union-attr]
+        )
+        .where(Card.set_id.is_not(None))  # type: ignore[union-attr]
+        .where(Card.pokemon_species_id.is_not(None))  # type: ignore[union-attr]
         .group_by(Card.set_id)
         .subquery()
     )
@@ -72,11 +86,17 @@ def get_set_recommendations(
             Set.release_date,
             missing_count,
             total_cards_subq.c.total_cards_in_set,
+            total_species_subq.c.total_species_in_set,
         )
         .join(Card, Card.set_id == Set.id)
         .join(total_cards_subq, total_cards_subq.c.set_id == Set.id)
+        .join(total_species_subq, total_species_subq.c.set_id == Set.id)
         .where(Card.pokemon_species_id.in_(missing_ids))  # type: ignore[union-attr]
-        .group_by(Set.id, total_cards_subq.c.total_cards_in_set)
+        .group_by(
+            Set.id,
+            total_cards_subq.c.total_cards_in_set,
+            total_species_subq.c.total_species_in_set,
+        )
         .order_by(
             missing_count.desc(),
             total_cards_subq.c.total_cards_in_set.asc(),
@@ -87,18 +107,26 @@ def get_set_recommendations(
 
     rows = session.exec(statement).all()  # type: ignore[call-overload]
 
-    return [
-        {
+    results = []
+    for rank, row in enumerate(rows, start=1):
+        coverage = round((row.missing_species_count / total_missing) * 100, 1) if total_missing > 0 else 0.0
+        density = round((row.missing_species_count / row.total_cards_in_set) * 100, 1) if row.total_cards_in_set > 0 else 0.0
+
+        results.append({
+            "rank": rank,
             "set_id": row.set_id,
             "api_set_id": row.api_set_id,
             "set_name": row.set_name,
             "series": row.series,
             "release_date": row.release_date,
             "missing_species_count": row.missing_species_count,
+            "total_species_in_set": row.total_species_in_set,
             "total_cards_in_set": row.total_cards_in_set,
-        }
-        for row in rows
-    ]
+            "coverage_percentage": coverage,
+            "missing_species_density_percentage": density,
+        })
+
+    return results
 
 
 def get_missing_species_in_set(

@@ -2,12 +2,16 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.database import get_session
 from app.schemas.progress import MissingSpeciesRead
 from app.schemas.recommendation import RecommendationResponse, SetRecommendation
-from app.services.progress_service import get_missing_species_count
+from app.services.progress_service import (
+    get_missing_species_count,
+    get_owned_species_count,
+    get_total_species_count,
+)
 from app.services.recommendation_service import (
     get_missing_species_in_set,
     get_set_recommendations,
@@ -29,9 +33,14 @@ def recommendations(
     Tie-breaking: fewer total cards (higher density), then newest release date.
     """
     recs = get_set_recommendations(session, limit=limit)
-    total_missing = get_missing_species_count(session)
+    total = get_total_species_count(session)
+    owned = get_owned_species_count(session)
+    missing = total - owned
+
     return RecommendationResponse(
-        total_missing_species=total_missing,
+        total_species=total,
+        owned_species=owned,
+        total_missing_species=missing,
         recommendations=[SetRecommendation(**r) for r in recs],
     )
 

@@ -105,11 +105,12 @@ class TestRecommendations:
 
         assert response.status_code == 200
         data = response.json()
+        assert data["total_species"] == 0
+        assert data["owned_species"] == 0
         assert data["total_missing_species"] == 0
         assert data["recommendations"] == []
 
     def test_all_species_missing_recommends_sets_with_pokemon_cards(self, client, session):
-        """With no collection entries, sets with Pokémon cards are recommended."""
         bulbasaur = _species(session, 1, "bulbasaur")
         charmander = _species(session, 4, "charmander")
 
@@ -119,6 +120,8 @@ class TestRecommendations:
 
         data = client.get("/recommendations").json()
 
+        assert data["total_species"] == 2
+        assert data["owned_species"] == 0
         assert data["total_missing_species"] == 2
         assert len(data["recommendations"]) == 1
         assert data["recommendations"][0]["missing_species_count"] == 2
@@ -131,16 +134,16 @@ class TestRecommendations:
         card_b = _card(session, "sv1-1", set_a, bulbasaur)
         _card(session, "sv1-4", set_a, charmander)
 
-        # Own bulbasaur
         _collect(session, card_b)
 
         data = client.get("/recommendations").json()
 
+        assert data["total_species"] == 2
+        assert data["owned_species"] == 1
         assert data["total_missing_species"] == 1
         assert data["recommendations"][0]["missing_species_count"] == 1
 
     def test_set_with_zero_missing_species_excluded(self, client, session):
-        """A set where all species are already owned should not appear."""
         bulbasaur = _species(session, 1, "bulbasaur")
         charmander = _species(session, 4, "charmander")
 
@@ -150,7 +153,6 @@ class TestRecommendations:
         card_a1 = _card(session, "sv1-1", set_a, bulbasaur)
         _card(session, "base1-4", set_b, charmander)
 
-        # Own bulbasaur (the only species in set_a)
         _collect(session, card_a1)
 
         data = client.get("/recommendations").json()
@@ -160,7 +162,6 @@ class TestRecommendations:
         assert set_b.id in set_ids
 
     def test_trainer_only_set_not_recommended(self, client, session):
-        """A set with only trainer/energy cards (no species) scores 0 and is excluded."""
         bulbasaur = _species(session, 1, "bulbasaur")
 
         trainer_set = _set(session, "trainer1", "Trainer Set")
@@ -177,7 +178,6 @@ class TestRecommendations:
         assert pokemon_set.id in set_ids
 
     def test_tie_break_fewer_total_cards_first(self, client, session):
-        """Same missing species count → set with fewer total cards ranks higher."""
         bulbasaur = _species(session, 1, "bulbasaur")
 
         # Set A: 1 Pokémon card + 2 trainer cards = 3 total
@@ -194,12 +194,10 @@ class TestRecommendations:
 
         recs = data["recommendations"]
         assert len(recs) == 2
-        # Both have missing_species_count=1, but set_b has fewer total cards
         assert recs[0]["set_id"] == set_b.id
         assert recs[1]["set_id"] == set_a.id
 
     def test_tie_break_newest_release_date_second(self, client, session):
-        """Same missing count and same total cards → newest release date first."""
         bulbasaur = _species(session, 1, "bulbasaur")
 
         set_old = _set(session, "old1", "Old Set", release_date=date(2000, 1, 1))
@@ -215,7 +213,6 @@ class TestRecommendations:
         assert recs[1]["set_id"] == set_old.id
 
     def test_duplicate_cards_same_species_dont_inflate_score(self, client, session):
-        """Multiple cards for the same species in a set → still scores 1."""
         bulbasaur = _species(session, 1, "bulbasaur")
 
         set_a = _set(session, "sv1", "Set A")
@@ -230,7 +227,6 @@ class TestRecommendations:
         assert data["recommendations"][0]["missing_species_count"] == 1
 
     def test_duplicate_collection_entries_dont_affect_recommendations(self, client, session):
-        """Owning 3 copies of a card doesn't change what's missing."""
         bulbasaur = _species(session, 1, "bulbasaur")
         charmander = _species(session, 4, "charmander")
 
@@ -248,7 +244,6 @@ class TestRecommendations:
         assert data["recommendations"][0]["missing_species_count"] == 1
 
     def test_full_completion_returns_empty_recommendations(self, client, session):
-        """All species owned → nothing to recommend."""
         bulbasaur = _species(session, 1, "bulbasaur")
 
         set_a = _set(session, "sv1", "Set A")
@@ -270,6 +265,116 @@ class TestRecommendations:
         data = client.get("/recommendations", params={"limit": 2}).json()
 
         assert len(data["recommendations"]) == 2
+
+    # ------------------------------------------------------------------
+    # New computed fields
+    # ------------------------------------------------------------------
+
+    def test_rank_is_sequential_starting_at_one(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        charmander = _species(session, 4, "charmander")
+        squirtle = _species(session, 7, "squirtle")
+
+        # Set A has 3 missing species, Set B has 1
+        set_a = _set(session, "sv1", "Set A")
+        _card(session, "sv1-1", set_a, bulbasaur)
+        _card(session, "sv1-4", set_a, charmander)
+        _card(session, "sv1-7", set_a, squirtle)
+
+        set_b = _set(session, "base1", "Set B")
+        _card(session, "base1-1", set_b, bulbasaur)
+
+        data = client.get("/recommendations").json()
+
+        recs = data["recommendations"]
+        assert recs[0]["rank"] == 1
+        assert recs[1]["rank"] == 2
+
+    def test_coverage_percentage_calculation(self, client, session):
+        """2 missing species in set / 4 total missing = 50.0%"""
+        bulbasaur = _species(session, 1, "bulbasaur")
+        charmander = _species(session, 4, "charmander")
+        squirtle = _species(session, 7, "squirtle")
+        pikachu = _species(session, 25, "pikachu")
+
+        set_a = _set(session, "sv1", "Set A")
+        _card(session, "sv1-1", set_a, bulbasaur)
+        _card(session, "sv1-4", set_a, charmander)
+
+        data = client.get("/recommendations").json()
+
+        assert data["total_missing_species"] == 4
+        assert data["recommendations"][0]["missing_species_count"] == 2
+        assert data["recommendations"][0]["coverage_percentage"] == 50.0
+
+    def test_coverage_percentage_with_partial_ownership(self, client, session):
+        """1 missing in set / 2 total missing = 50.0%"""
+        bulbasaur = _species(session, 1, "bulbasaur")
+        charmander = _species(session, 4, "charmander")
+        squirtle = _species(session, 7, "squirtle")
+
+        set_a = _set(session, "sv1", "Set A")
+        card_b = _card(session, "sv1-1", set_a, bulbasaur)
+        _card(session, "sv1-4", set_a, charmander)
+        _card(session, "sv1-7", set_a, squirtle)
+
+        _collect(session, card_b)
+
+        data = client.get("/recommendations").json()
+
+        # Total missing = 2 (charmander, squirtle). Set A has both.
+        assert data["total_missing_species"] == 2
+        assert data["recommendations"][0]["coverage_percentage"] == 100.0
+
+    def test_missing_species_density_percentage_calculation(self, client, session):
+        """1 missing species / 4 total cards in set = 25.0%"""
+        bulbasaur = _species(session, 1, "bulbasaur")
+
+        set_a = _set(session, "sv1", "Set A")
+        _card(session, "sv1-1", set_a, bulbasaur)
+        _card(session, "sv1-t1", set_a, species=None)
+        _card(session, "sv1-t2", set_a, species=None)
+        _card(session, "sv1-t3", set_a, species=None)
+
+        data = client.get("/recommendations").json()
+
+        rec = data["recommendations"][0]
+        assert rec["missing_species_count"] == 1
+        assert rec["total_cards_in_set"] == 4
+        assert rec["missing_species_density_percentage"] == 25.0
+
+    def test_missing_species_density_percentage_high_density(self, client, session):
+        """3 missing species / 3 total cards = 100.0%"""
+        bulbasaur = _species(session, 1, "bulbasaur")
+        charmander = _species(session, 4, "charmander")
+        squirtle = _species(session, 7, "squirtle")
+
+        set_a = _set(session, "sv1", "Set A")
+        _card(session, "sv1-1", set_a, bulbasaur)
+        _card(session, "sv1-4", set_a, charmander)
+        _card(session, "sv1-7", set_a, squirtle)
+
+        data = client.get("/recommendations").json()
+
+        assert data["recommendations"][0]["missing_species_density_percentage"] == 100.0
+
+    def test_total_species_in_set_includes_owned(self, client, session):
+        """total_species_in_set counts ALL species in the set, including owned ones."""
+        bulbasaur = _species(session, 1, "bulbasaur")
+        charmander = _species(session, 4, "charmander")
+
+        set_a = _set(session, "sv1", "Set A")
+        card_b = _card(session, "sv1-1", set_a, bulbasaur)
+        _card(session, "sv1-4", set_a, charmander)
+
+        # Own bulbasaur — but total_species_in_set should still be 2
+        _collect(session, card_b)
+
+        data = client.get("/recommendations").json()
+
+        rec = data["recommendations"][0]
+        assert rec["total_species_in_set"] == 2
+        assert rec["missing_species_count"] == 1
 
     def test_response_matches_schema_fields(self, client, session):
         bulbasaur = _species(session, 1, "bulbasaur")
