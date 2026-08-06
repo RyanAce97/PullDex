@@ -9,6 +9,7 @@ import app.models  # noqa: F401 — registers all table metadata with SQLModel
 from app.routers import cards as cards_router
 from app.routers import collection as collection_router
 from app.routers import progress as progress_router
+from app.routers import recommendations as recommendations_router
 from app.routers import sets as sets_router
 from app.routers import species as species_router
 
@@ -50,6 +51,7 @@ app.add_middleware(
 app.include_router(cards_router.router)
 app.include_router(collection_router.router)
 app.include_router(progress_router.router)
+app.include_router(recommendations_router.router)
 app.include_router(sets_router.router)
 app.include_router(species_router.router)
 
