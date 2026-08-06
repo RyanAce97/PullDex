@@ -10,6 +10,7 @@ export const queryKeys = {
   missingSpecies: ["progress", "missing"] as const,
 
   species: ["species"] as const,
+  speciesSummary: ["species", "summary"] as const,
 
   collection: ["collection"] as const,
 

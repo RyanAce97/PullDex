@@ -6,13 +6,25 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database import get_session
 from app.schemas.pokemon_species import PokemonSpeciesRead
+from app.schemas.species_summary import SpeciesSummaryRead
 from app.services.pokemon_species_service import (
     get_all_species,
     get_species_by_dex_number,
     search_species_by_name,
 )
+from app.services.species_summary_service import get_species_summary
 
 router = APIRouter(prefix="/species", tags=["Species"])
+
+
+@router.get("/summary", response_model=list[SpeciesSummaryRead], summary="Species ownership summary")
+def species_summary(session=Depends(get_session)):
+    """Return one row per species with card variant counts and ownership status.
+
+    Used by the Collection page to show species-level completion at a glance.
+    Includes total available cards and how many the user owns for each species.
+    """
+    return get_species_summary(session)
 
 
 @router.get("", response_model=list[PokemonSpeciesRead], summary="List or search species")

@@ -3,6 +3,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 
 const navItems = [
   { to: "/", label: "Dashboard" },
+  { to: "/collection", label: "Collection" },
   { to: "/recommendations", label: "Recommendations" },
   { to: "/pokedex", label: "Pokédex" },
 ];
