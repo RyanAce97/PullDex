@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/recommendations", label: "Recommendations" },
+  { to: "/pokedex", label: "Pokédex" },
 ];
 
 export function Layout() {
