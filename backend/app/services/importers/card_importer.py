@@ -113,7 +113,7 @@ def upsert_card(session: Session, data: dict) -> Card:
     return card
 
 
-def import_all_cards(page_size: int = 250) -> None:
+def import_all_cards(page_size: int = 250, start_page: int = 1) -> None:
     """Fetch all cards from the Pokémon TCG API and upsert into the database.
 
     Pages through /cards using 1-based page numbers until the API returns
@@ -124,13 +124,16 @@ def import_all_cards(page_size: int = 250) -> None:
     tolerant of a partially-populated database.
 
     Args:
-        page_size: Number of cards to request per page (max 250).
+        page_size:  Number of cards to request per page (max 250).
+        start_page: 1-based page number to begin importing from.  Set this
+                    to resume a previously interrupted import.
     """
     with PokemonTCGClient() as api, get_session_context() as session:
-        page_number = 1
+        page_number = start_page
         total_imported = 0
 
         while True:
+            print(f"Fetching page {page_number}...")
             response = api.get_cards(page=page_number, page_size=page_size)
             cards = response.get("data", [])
 
@@ -143,15 +146,26 @@ def import_all_cards(page_size: int = 250) -> None:
             session.commit()
             total_imported += len(cards)
             total_count = response.get("totalCount", "?")
-            print(f"Imported {total_imported} / {total_count} cards")
+            print(f"Imported {total_imported} cards this run (total in DB may be higher) / {total_count} total")
 
             if len(cards) < page_size:
                 break
 
             page_number += 1
 
-    print(f"Done. Total cards imported: {total_imported}")
+    print(f"Done. Cards imported this run: {total_imported}")
 
 
 if __name__ == "__main__":
-    import_all_cards()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Import Pokémon TCG cards into PullDex.")
+    parser.add_argument(
+        "--start-page",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Page number to start importing from (default: 1).",
+    )
+    args = parser.parse_args()
+    import_all_cards(start_page=args.start_page)

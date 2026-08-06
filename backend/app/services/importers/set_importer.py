@@ -76,21 +76,24 @@ def upsert_set(session: Session, data: dict) -> Set:
     return tcg_set
 
 
-def import_all_sets(page_size: int = 50) -> None:
+def import_all_sets(page_size: int = 250, start_page: int = 1) -> None:
     """Fetch all sets from the Pokémon TCG API and upsert into the database.
 
     The TCG API returns all sets in a single page at the default page size
-    of 50 (there are currently ~163 sets), but this function pages through
+    of 250 (there are currently ~163 sets), but this function pages through
     the full result set to be future-proof.  Commits once per page.
 
     Args:
-        page_size: Number of sets to request per page (max 50).
+        page_size:  Number of sets to request per page (max 250).
+        start_page: 1-based page number to begin importing from.  Set this
+                    to resume a previously interrupted import.
     """
     with PokemonTCGClient() as api, get_session_context() as session:
-        page_number = 1
+        page_number = start_page
         total_imported = 0
 
         while True:
+            print(f"Fetching page {page_number}...")
             response = api.get_sets(page=page_number, page_size=page_size)
             sets = response.get("data", [])
 
@@ -103,7 +106,7 @@ def import_all_sets(page_size: int = 50) -> None:
             session.commit()
             total_imported += len(sets)
             total_count = response.get("totalCount", "?")
-            print(f"Imported {total_imported} / {total_count} sets")
+            print(f"Imported {total_imported} sets this run (total in DB may be higher) / {total_count} total")
 
             # Stop when the current page returned fewer results than requested
             # (last page) or when we have imported everything.
@@ -112,8 +115,19 @@ def import_all_sets(page_size: int = 50) -> None:
 
             page_number += 1
 
-    print(f"Done. Total sets imported: {total_imported}")
+    print(f"Done. Sets imported this run: {total_imported}")
 
 
 if __name__ == "__main__":
-    import_all_sets()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Import Pokémon TCG sets into PullDex.")
+    parser.add_argument(
+        "--start-page",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Page number to start importing from (default: 1).",
+    )
+    args = parser.parse_args()
+    import_all_sets(start_page=args.start_page)
