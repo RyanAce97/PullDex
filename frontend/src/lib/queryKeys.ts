@@ -14,6 +14,9 @@ export const queryKeys = {
 
   collection: ["collection"] as const,
 
+  sets: ["sets"] as const,
+  setsSummary: ["sets", "summary"] as const,
+
   cardsByDex: (dexNumber: number) => ["cards", "by-dex", dexNumber] as const,
 
   recommendations: (limit: number) => ["recommendations", limit] as const,

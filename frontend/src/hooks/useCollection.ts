@@ -63,6 +63,8 @@ export function useAddToCollection() {
       queryClient.invalidateQueries({ queryKey: queryKeys.collection });
       queryClient.invalidateQueries({ queryKey: queryKeys.progress });
       queryClient.invalidateQueries({ queryKey: queryKeys.missingSpecies });
+      queryClient.invalidateQueries({ queryKey: queryKeys.speciesSummary });
+      queryClient.invalidateQueries({ queryKey: queryKeys.setsSummary });
       queryClient.invalidateQueries({ queryKey: ["recommendations"] });
     },
   });
@@ -108,6 +110,8 @@ export function useRemoveFromCollection() {
       queryClient.invalidateQueries({ queryKey: queryKeys.collection });
       queryClient.invalidateQueries({ queryKey: queryKeys.progress });
       queryClient.invalidateQueries({ queryKey: queryKeys.missingSpecies });
+      queryClient.invalidateQueries({ queryKey: queryKeys.speciesSummary });
+      queryClient.invalidateQueries({ queryKey: queryKeys.setsSummary });
       queryClient.invalidateQueries({ queryKey: ["recommendations"] });
     },
   });
