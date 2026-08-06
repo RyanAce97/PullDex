@@ -1,8 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { getProgress, getMissingSpecies } from "../api/progress";
-import { getAllSpecies } from "../api/species";
-import { NATIONAL_DEX_COUNT } from "../lib/constants";
-import { queryKeys } from "../lib/queryKeys";
+import { useProgress } from "./useProgress";
+import { useMissingSpeciesQuery } from "./useMissingSpeciesQuery";
+import { useSpeciesQuery } from "./useSpeciesQuery";
 import type { PokemonSpeciesRead, ProgressRead } from "../types";
 
 interface PokedexData {
@@ -18,23 +16,9 @@ interface UsePokedexResult {
 }
 
 export function usePokedex(): UsePokedexResult {
-  const speciesQuery = useQuery({
-    queryKey: queryKeys.species,
-    queryFn: () => getAllSpecies(NATIONAL_DEX_COUNT),
-  });
-
-  const missingQuery = useQuery({
-    queryKey: queryKeys.missingSpecies,
-    queryFn: async () => {
-      const missing = await getMissingSpecies(NATIONAL_DEX_COUNT, 0);
-      return new Set(missing.map((s) => s.id));
-    },
-  });
-
-  const progressQuery = useQuery({
-    queryKey: queryKeys.progress,
-    queryFn: getProgress,
-  });
+  const speciesQuery = useSpeciesQuery();
+  const missingQuery = useMissingSpeciesQuery();
+  const progressQuery = useProgress();
 
   const isLoading =
     speciesQuery.isLoading || missingQuery.isLoading || progressQuery.isLoading;

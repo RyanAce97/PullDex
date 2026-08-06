@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { getCardsByDex } from "../api/cards";
 import { getCollection } from "../api/collection";
-import { getMissingSpecies } from "../api/progress";
-import { getAllSpecies } from "../api/species";
 import { queryKeys } from "../lib/queryKeys";
-import { NATIONAL_DEX_COUNT } from "../lib/constants";
+import { useMissingSpeciesQuery } from "./useMissingSpeciesQuery";
+import { useSpeciesQuery } from "./useSpeciesQuery";
 import type { CardRead, CollectionRead, PokemonSpeciesRead } from "../types";
 
 interface SpeciesDetailData {
@@ -24,18 +23,8 @@ interface UseSpeciesDetailResult {
 }
 
 export function useSpeciesDetail(speciesId: number): UseSpeciesDetailResult {
-  const speciesQuery = useQuery({
-    queryKey: queryKeys.species,
-    queryFn: () => getAllSpecies(NATIONAL_DEX_COUNT),
-  });
-
-  const missingQuery = useQuery({
-    queryKey: queryKeys.missingSpecies,
-    queryFn: async () => {
-      const missing = await getMissingSpecies(NATIONAL_DEX_COUNT, 0);
-      return new Set(missing.map((s) => s.id));
-    },
-  });
+  const speciesQuery = useSpeciesQuery();
+  const missingQuery = useMissingSpeciesQuery();
 
   const collectionQuery = useQuery({
     queryKey: queryKeys.collection,

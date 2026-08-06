@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 const navItems = [
   { to: "/", label: "Dashboard" },
@@ -34,7 +35,9 @@ export function Layout() {
         </div>
       </header>
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );

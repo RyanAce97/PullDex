@@ -1,3 +1,4 @@
+import { useCallback, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSpeciesDetail } from "../hooks/useSpeciesDetail";
 import {
@@ -18,6 +19,56 @@ export function SpeciesDetail() {
   const addMutation = useAddToCollection();
   const removeMutation = useRemoveFromCollection();
 
+  // Track which card IDs have in-flight mutations to disable only those buttons.
+  const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+
+  // Prevent double-click race conditions: track entry IDs already being removed.
+  const removingEntryIds = useRef<Set<number>>(new Set());
+
+  const handleAdd = useCallback(
+    (cardId: number) => {
+      if (pendingCardIds.has(cardId)) return;
+
+      setPendingCardIds((prev) => new Set(prev).add(cardId));
+      addMutation.mutate(cardId, {
+        onSettled: () => {
+          setPendingCardIds((prev) => {
+            const next = new Set(prev);
+            next.delete(cardId);
+            return next;
+          });
+        },
+      });
+    },
+    [addMutation, pendingCardIds],
+  );
+
+  const handleRemove = useCallback(
+    (cardId: number) => {
+      if (!data || pendingCardIds.has(cardId)) return;
+
+      const entry = data.collectionEntries.find((e) => e.card_id === cardId);
+      if (!entry || removingEntryIds.current.has(entry.id)) return;
+
+      removingEntryIds.current.add(entry.id);
+      setPendingCardIds((prev) => new Set(prev).add(cardId));
+
+      removeMutation.mutate(entry.id, {
+        onSettled: () => {
+          removingEntryIds.current.delete(entry.id);
+          setPendingCardIds((prev) => {
+            const next = new Set(prev);
+            next.delete(cardId);
+            return next;
+          });
+        },
+      });
+    },
+    [data, removeMutation, pendingCardIds],
+  );
+
   if (isLoading) {
     return <LoadingSpinner message="Loading species details..." />;
   }
@@ -30,19 +81,7 @@ export function SpeciesDetail() {
     return <EmptyState icon="❓" message="Species not found." />;
   }
 
-  const { species, owned, cards, collectionEntries, ownedCardIds } = data;
-
-  function handleAdd(cardId: number) {
-    addMutation.mutate(cardId);
-  }
-
-  function handleRemove(cardId: number) {
-    // Find the collection entry for this card and remove it
-    const entry = collectionEntries.find((e) => e.card_id === cardId);
-    if (entry) {
-      removeMutation.mutate(entry.id);
-    }
-  }
+  const { species, owned, cards, ownedCardIds } = data;
 
   return (
     <div className="space-y-6">
@@ -99,7 +138,7 @@ export function SpeciesDetail() {
                 isOwned={ownedCardIds.has(card.id)}
                 onAdd={() => handleAdd(card.id)}
                 onRemove={() => handleRemove(card.id)}
-                isPending={addMutation.isPending || removeMutation.isPending}
+                isPending={pendingCardIds.has(card.id)}
               />
             ))}
           </div>
@@ -163,7 +202,7 @@ function CardListItem({
         }`}
         aria-label={isOwned ? "Remove from collection" : "Add to collection"}
       >
-        {isOwned ? "Remove" : "Add"}
+        {isPending ? "..." : isOwned ? "Remove" : "Add"}
       </button>
     </div>
   );
