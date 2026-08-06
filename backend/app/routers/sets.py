@@ -6,14 +6,26 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database import get_session
 from app.schemas.set import SetRead
+from app.schemas.set_summary import SetSummaryRead
 from app.services.set_service import (
     get_all_sets,
     get_set_by_api_id,
     get_set_by_id,
     search_sets_by_name,
 )
+from app.services.set_summary_service import get_set_summaries
 
 router = APIRouter(prefix="/sets", tags=["Sets"])
+
+
+@router.get("/summary", response_model=list[SetSummaryRead], summary="Set ownership summary")
+def sets_summary(session=Depends(get_session)):
+    """Return one row per set with species ownership statistics.
+
+    Shows total species in set, owned species, and missing species.
+    Only includes sets that contain at least one Pokémon card.
+    """
+    return get_set_summaries(session)
 
 
 @router.get("", response_model=list[SetRead], summary="List or search sets")

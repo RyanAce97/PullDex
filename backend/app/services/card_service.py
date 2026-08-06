@@ -171,3 +171,89 @@ def get_cards_by_national_dex_number(
     if species is None or species.id is None:
         return []
     return get_cards_by_species(session, species.id, limit=limit, offset=offset)
+
+
+def search_cards_full(
+    session: Session,
+    query: str,
+    limit: int = 50,
+) -> list[dict]:
+    """Search cards across multiple fields, returning rich results with context.
+
+    Matches against:
+      - Pokémon species name (ilike)
+      - Card api_card_id (ilike)
+      - Card card_number (ilike)
+      - Set api_set_id / set code (ilike)
+      - Set name (ilike)
+
+    Results are ordered to prioritize:
+      1. Exact card_number or api_card_id matches
+      2. Set code matches
+      3. Species name matches
+
+    Args:
+        session: An open SQLModel Session.
+        query:   Search string (case-insensitive, substring).
+        limit:   Maximum results to return.
+
+    Returns:
+        A list of dicts with card details + denormalized species/set info.
+    """
+    from sqlalchemy import case as sa_case, literal
+
+    term = f"%{query}%"
+
+    # Priority scoring: exact-ish matches rank higher
+    # card_number or api_card_id match → priority 1
+    # set code match → priority 2
+    # species name or set name match → priority 3
+    priority = sa_case(
+        (Card.card_number.ilike(term), literal(1)),  # type: ignore[union-attr]
+        (Card.api_card_id.ilike(term), literal(1)),  # type: ignore[union-attr]
+        (Set.api_set_id.ilike(term), literal(2)),  # type: ignore[union-attr]
+        else_=literal(3),
+    ).label("priority")
+
+    statement = (
+        select(
+            Card.id,
+            Card.api_card_id,
+            Card.card_number,
+            Card.rarity,
+            Card.image_url,
+            PokemonSpecies.name.label("pokemon_name"),  # type: ignore[attr-defined]
+            PokemonSpecies.national_dex_number,
+            Set.name.label("set_name"),  # type: ignore[attr-defined]
+            Set.api_set_id.label("set_code"),  # type: ignore[attr-defined]
+            priority,
+        )
+        .join(PokemonSpecies, Card.pokemon_species_id == PokemonSpecies.id, isouter=True)
+        .join(Set, Card.set_id == Set.id, isouter=True)
+        .where(
+            (PokemonSpecies.name.ilike(term))  # type: ignore[union-attr]
+            | (Card.api_card_id.ilike(term))  # type: ignore[union-attr]
+            | (Card.card_number.ilike(term))  # type: ignore[union-attr]
+            | (Set.api_set_id.ilike(term))  # type: ignore[union-attr]
+            | (Set.name.ilike(term))  # type: ignore[union-attr]
+        )
+        .order_by(priority, PokemonSpecies.name, Card.card_number)  # type: ignore[arg-type]
+        .limit(limit)
+    )
+
+    rows = session.exec(statement).all()  # type: ignore[call-overload]
+
+    return [
+        {
+            "id": row.id,
+            "api_card_id": row.api_card_id,
+            "card_number": row.card_number,
+            "rarity": row.rarity,
+            "image_url": row.image_url,
+            "pokemon_name": row.pokemon_name,
+            "national_dex_number": row.national_dex_number,
+            "set_name": row.set_name,
+            "set_code": row.set_code,
+        }
+        for row in rows
+    ]

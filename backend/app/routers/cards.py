@@ -6,13 +6,32 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database import get_session
 from app.schemas.card import CardRead
+from app.schemas.card_search import CardSearchResult
 from app.services.card_service import (
     get_card_by_id,
     get_cards_by_national_dex_number,
     search_cards_by_name,
+    search_cards_full,
 )
 
 router = APIRouter(prefix="/cards", tags=["Cards"])
+
+
+@router.get("/search", response_model=list[CardSearchResult], summary="Search cards (rich)")
+def search_cards_rich(
+    q: Annotated[str, Query(min_length=1, description="Search across name, card number, set code, set name.")],
+    limit: Annotated[int, Query(ge=1, le=100, description="Maximum results to return.")] = 50,
+    session=Depends(get_session),
+):
+    """Search cards across multiple fields for the Add Cards workflow.
+
+    Matches against Pokémon name, card number, API card ID, set code, and
+    set name.  Prioritizes exact card number and set code matches above
+    loose name matches.
+
+    Returns rich results with denormalized species and set context.
+    """
+    return search_cards_full(session, q, limit=limit)
 
 
 @router.get("", response_model=list[CardRead], summary="Search cards by name")
