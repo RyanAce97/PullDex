@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import create_db_and_tables
 import app.models  # noqa: F401 — registers all table metadata with SQLModel
+from app.routers import cards as cards_router
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +42,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(cards_router.router)
 
 
 # ---------------------------------------------------------------------------
