@@ -16,6 +16,7 @@ class PokemonSpecies(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     national_dex_number: int = Field(
+        unique=True,
         index=True,
         description="National Pokédex number, e.g. 25 for Pikachu.",
     )

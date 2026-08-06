@@ -22,6 +22,7 @@ class Card(SQLModel, table=True):
     # External API identifier (e.g. TCGdx / PokéTCG API card ID such as "sv1-25").
     api_card_id: Optional[str] = Field(
         default=None,
+        unique=True,
         index=True,
         max_length=50,
         description="Identifier from the external card API, e.g. 'sv1-25'.",
