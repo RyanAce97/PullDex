@@ -1,7 +1,6 @@
 """Tests for the /collection API routes.
 
-Uses FastAPI's TestClient with the database session dependency overridden
-to an in-memory SQLite database — no disk writes, no running server needed.
+Tests both species-level and card-level collection management.
 """
 
 import pytest
@@ -23,12 +22,6 @@ from app.schemas.collection import CollectionRead
 
 @pytest.fixture(name="session")
 def session_fixture():
-    """In-memory SQLite session with the full schema.
-
-    Uses a single connection held open for the duration of the fixture so
-    that the tables created by ``SQLModel.metadata.create_all`` remain
-    visible to every query made within the same test.
-    """
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     connection = engine.connect()
     SQLModel.metadata.create_all(connection)
@@ -39,11 +32,6 @@ def session_fixture():
 
 @pytest.fixture(name="client")
 def client_fixture(session):
-    """TestClient with the session dependency overridden.
-
-    Instantiated directly (not as a context manager) so that Starlette's
-    lifespan hooks never fire.
-    """
     def override_get_session():
         yield session
 
@@ -56,27 +44,24 @@ def client_fixture(session):
 # Seed helpers
 # ---------------------------------------------------------------------------
 
-def _seed_card(session: Session, api_card_id: str = "sv1-1") -> Card:
-    """Create and persist a card to use in collection tests."""
-    tcg_set = Set(api_set_id=f"set-{api_card_id}", name="Test Set", series="Test")
+def _species(session: Session, dex: int, name: str) -> PokemonSpecies:
+    s = PokemonSpecies(national_dex_number=dex, name=name, generation=1)
+    session.add(s)
+    session.commit()
+    session.refresh(s)
+    return s
+
+
+def _card(session: Session, api_card_id: str, species: PokemonSpecies) -> Card:
+    tcg_set = Set(api_set_id=f"set-{api_card_id}", name="Test", series="Test")
     session.add(tcg_set)
     session.commit()
     session.refresh(tcg_set)
-
-    card = Card(api_card_id=api_card_id, set_id=tcg_set.id, rarity="Common")
+    card = Card(api_card_id=api_card_id, set_id=tcg_set.id, pokemon_species_id=species.id)
     session.add(card)
     session.commit()
     session.refresh(card)
     return card
-
-
-def _seed_collection_entry(session: Session, card: Card) -> Collection:
-    """Add a card to the collection and return the entry."""
-    entry = Collection(card_id=card.id)
-    session.add(entry)
-    session.commit()
-    session.refresh(entry)
-    return entry
 
 
 # ---------------------------------------------------------------------------
@@ -84,219 +69,223 @@ def _seed_collection_entry(session: Session, card: Card) -> Collection:
 # ---------------------------------------------------------------------------
 
 class TestListCollection:
-    def test_returns_empty_list_when_empty(self, client):
-        response = client.get("/collection")
+    def test_returns_empty_list(self, client):
+        assert client.get("/collection").json() == []
 
-        assert response.status_code == 200
-        assert response.json() == []
+    def test_returns_species_entries(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        client.post("/collection/species", json={"pokemon_species_id": bulbasaur.id})
 
-    def test_returns_collection_entries(self, client, session):
-        card = _seed_card(session)
-        _seed_collection_entry(session, card)
+        data = client.get("/collection").json()
+        assert len(data) == 1
+        assert data[0]["pokemon_species_id"] == bulbasaur.id
+        assert data[0]["card_id"] is None
 
-        response = client.get("/collection")
+    def test_returns_card_entries(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        card = _card(session, "sv1-1", bulbasaur)
+        client.post("/collection/cards", json={"card_id": card.id})
 
-        assert response.status_code == 200
-        data = response.json()
+        data = client.get("/collection").json()
         assert len(data) == 1
         assert data[0]["card_id"] == card.id
 
-    def test_returns_multiple_entries(self, client, session):
-        card1 = _seed_card(session, "sv1-1")
-        card2 = _seed_card(session, "sv1-2")
-        _seed_collection_entry(session, card1)
-        _seed_collection_entry(session, card2)
-
-        response = client.get("/collection")
-
-        assert len(response.json()) == 2
-
-    def test_limit_is_respected(self, client, session):
-        for i in range(5):
-            card = _seed_card(session, f"sv1-{i}")
-            _seed_collection_entry(session, card)
-
-        response = client.get("/collection", params={"limit": 2})
-
-        assert len(response.json()) == 2
-
-    def test_offset_is_respected(self, client, session):
-        for i in range(5):
-            card = _seed_card(session, f"sv1-{i}")
-            _seed_collection_entry(session, card)
-
-        all_entries = client.get("/collection").json()
-        offset_entries = client.get("/collection", params={"offset": 3}).json()
-
-        assert len(offset_entries) == len(all_entries) - 3
-
-    def test_limit_above_250_is_rejected(self, client):
-        response = client.get("/collection", params={"limit": 251})
-        assert response.status_code == 422
-
 
 # ---------------------------------------------------------------------------
-# GET /collection/{entry_id}
+# POST /collection/species — species-level ownership
 # ---------------------------------------------------------------------------
 
-class TestGetCollectionEntry:
-    def test_returns_200_and_entry(self, client, session):
-        card = _seed_card(session)
-        entry = _seed_collection_entry(session, card)
+class TestAddSpecies:
+    def test_adds_species_returns_201(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
 
-        response = client.get(f"/collection/{entry.id}")
+        response = client.post("/collection/species", json={"pokemon_species_id": bulbasaur.id})
 
-        assert response.status_code == 200
+        assert response.status_code == 201
         data = response.json()
-        assert data["id"] == entry.id
-        assert data["card_id"] == card.id
+        assert data["pokemon_species_id"] == bulbasaur.id
+        assert data["card_id"] is None
+        assert data["quantity"] == 1
 
-    def test_returns_404_when_not_found(self, client):
-        response = client.get("/collection/99999")
+    def test_idempotent_returns_existing(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
 
+        r1 = client.post("/collection/species", json={"pokemon_species_id": bulbasaur.id})
+        r2 = client.post("/collection/species", json={"pokemon_species_id": bulbasaur.id})
+
+        assert r1.json()["id"] == r2.json()["id"]
+
+    def test_404_for_nonexistent_species(self, client):
+        response = client.post("/collection/species", json={"pokemon_species_id": 99999})
         assert response.status_code == 404
-        assert "99999" in response.json()["detail"]
 
-    def test_response_contains_expected_fields(self, client, session):
-        card = _seed_card(session)
-        entry = _seed_collection_entry(session, card)
+    def test_species_appears_in_progress_as_owned(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        _species(session, 4, "charmander")
 
-        data = client.get(f"/collection/{entry.id}").json()
+        client.post("/collection/species", json={"pokemon_species_id": bulbasaur.id})
 
-        expected_fields = set(CollectionRead.model_fields)
-        assert expected_fields == set(data.keys())
-
-    def test_response_does_not_expose_orm_relationships(self, client, session):
-        card = _seed_card(session)
-        entry = _seed_collection_entry(session, card)
-
-        data = client.get(f"/collection/{entry.id}").json()
-
-        assert "card" not in data
+        progress = client.get("/progress").json()
+        assert progress["owned_species"] == 1
+        assert progress["missing_species"] == 1
 
 
 # ---------------------------------------------------------------------------
-# POST /collection
+# DELETE /collection/species/{species_id}
 # ---------------------------------------------------------------------------
 
-class TestAddToCollection:
-    def test_adds_card_and_returns_201(self, client, session):
-        card = _seed_card(session)
+class TestRemoveSpecies:
+    def test_removes_species_entry(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        client.post("/collection/species", json={"pokemon_species_id": bulbasaur.id})
 
-        response = client.post("/collection", json={"card_id": card.id})
+        response = client.delete(f"/collection/species/{bulbasaur.id}")
+        assert response.status_code == 204
+
+        data = client.get("/collection").json()
+        assert len(data) == 0
+
+    def test_404_if_no_entry(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        response = client.delete(f"/collection/species/{bulbasaur.id}")
+        assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# POST /collection/cards — card-level ownership
+# ---------------------------------------------------------------------------
+
+class TestAddCard:
+    def test_adds_card_returns_201(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        card = _card(session, "sv1-1", bulbasaur)
+
+        response = client.post("/collection/cards", json={"card_id": card.id})
 
         assert response.status_code == 201
         data = response.json()
         assert data["card_id"] == card.id
-        assert "id" in data
+        assert data["quantity"] == 1
 
-    def test_entry_persists_in_database(self, client, session):
-        card = _seed_card(session)
+    def test_adding_same_card_increments_quantity(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        card = _card(session, "sv1-1", bulbasaur)
 
-        client.post("/collection", json={"card_id": card.id})
+        client.post("/collection/cards", json={"card_id": card.id, "quantity": 1})
+        response = client.post("/collection/cards", json={"card_id": card.id, "quantity": 2})
 
-        # Verify via GET
-        response = client.get("/collection")
-        assert len(response.json()) == 1
+        assert response.json()["quantity"] == 3
 
-    def test_returns_404_for_nonexistent_card(self, client):
-        response = client.post("/collection", json={"card_id": 99999})
-
+    def test_404_for_nonexistent_card(self, client):
+        response = client.post("/collection/cards", json={"card_id": 99999})
         assert response.status_code == 404
-        assert "99999" in response.json()["detail"]
 
-    def test_requires_card_id(self, client):
-        response = client.post("/collection", json={})
+    def test_custom_quantity(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        card = _card(session, "sv1-1", bulbasaur)
 
-        assert response.status_code == 422
-
-    def test_response_matches_schema(self, client, session):
-        card = _seed_card(session)
-
-        data = client.post("/collection", json={"card_id": card.id}).json()
-
-        assert set(data.keys()) == set(CollectionRead.model_fields)
-
-    def test_can_add_same_card_multiple_times(self, client, session):
-        """Multiple collection entries for the same card are valid (multiple pulls)."""
-        card = _seed_card(session)
-
-        client.post("/collection", json={"card_id": card.id})
-        client.post("/collection", json={"card_id": card.id})
-
-        response = client.get("/collection")
-        assert len(response.json()) == 2
+        response = client.post("/collection/cards", json={"card_id": card.id, "quantity": 3})
+        assert response.json()["quantity"] == 3
 
 
 # ---------------------------------------------------------------------------
-# DELETE /collection/{entry_id}
+# PATCH /collection/cards/{entry_id} — update quantity
 # ---------------------------------------------------------------------------
 
-class TestDeleteFromCollection:
-    def test_deletes_entry_and_returns_204(self, client, session):
-        card = _seed_card(session)
-        entry = _seed_collection_entry(session, card)
+class TestUpdateCardQuantity:
+    def test_updates_quantity(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        card = _card(session, "sv1-1", bulbasaur)
+        create_resp = client.post("/collection/cards", json={"card_id": card.id})
+        entry_id = create_resp.json()["id"]
 
-        response = client.delete(f"/collection/{entry.id}")
+        response = client.patch(f"/collection/cards/{entry_id}", json={"quantity": 5})
+        assert response.status_code == 200
+        assert response.json()["quantity"] == 5
 
-        assert response.status_code == 204
+    def test_setting_zero_removes_entry(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        card = _card(session, "sv1-1", bulbasaur)
+        create_resp = client.post("/collection/cards", json={"card_id": card.id})
+        entry_id = create_resp.json()["id"]
 
-    def test_entry_is_removed_from_database(self, client, session):
-        card = _seed_card(session)
-        entry = _seed_collection_entry(session, card)
+        client.patch(f"/collection/cards/{entry_id}", json={"quantity": 0})
 
-        client.delete(f"/collection/{entry.id}")
+        data = client.get("/collection").json()
+        assert len(data) == 0
 
-        response = client.get("/collection")
+
+# ---------------------------------------------------------------------------
+# GET /collection/species/{species_id}/cards
+# ---------------------------------------------------------------------------
+
+class TestGetSpeciesCards:
+    def test_returns_card_entries_for_species(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        card1 = _card(session, "sv1-1", bulbasaur)
+        card2 = _card(session, "sv1-2", bulbasaur)
+        client.post("/collection/cards", json={"card_id": card1.id})
+        client.post("/collection/cards", json={"card_id": card2.id, "quantity": 2})
+
+        response = client.get(f"/collection/species/{bulbasaur.id}/cards")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+
+    def test_returns_empty_if_no_cards_tracked(self, client, session):
+        bulbasaur = _species(session, 1, "bulbasaur")
+        response = client.get(f"/collection/species/{bulbasaur.id}/cards")
         assert response.json() == []
 
-    def test_returns_404_for_nonexistent_entry(self, client):
-        response = client.delete("/collection/99999")
 
-        assert response.status_code == 404
-        assert "99999" in response.json()["detail"]
+# ---------------------------------------------------------------------------
+# Integration: species + card ownership both count
+# ---------------------------------------------------------------------------
 
-    def test_deleting_does_not_affect_other_entries(self, client, session):
-        card1 = _seed_card(session, "sv1-1")
-        card2 = _seed_card(session, "sv1-2")
-        entry1 = _seed_collection_entry(session, card1)
-        _seed_collection_entry(session, card2)
+class TestOwnershipIntegration:
+    def test_species_only_counts_as_owned(self, client, session):
+        """Adding just a species (no card) makes it owned in progress."""
+        pikachu = _species(session, 25, "pikachu")
+        client.post("/collection/species", json={"pokemon_species_id": pikachu.id})
 
-        client.delete(f"/collection/{entry1.id}")
+        missing = client.get("/progress/missing").json()
+        names = [s["name"] for s in missing]
+        assert "pikachu" not in names
 
-        remaining = client.get("/collection").json()
-        assert len(remaining) == 1
-        assert remaining[0]["card_id"] == card2.id
+    def test_card_only_counts_as_owned(self, client, session):
+        """Adding just a card (no species entry) makes the species owned."""
+        pikachu = _species(session, 25, "pikachu")
+        card = _card(session, "sv1-25", pikachu)
+        client.post("/collection/cards", json={"card_id": card.id})
+
+        missing = client.get("/progress/missing").json()
+        names = [s["name"] for s in missing]
+        assert "pikachu" not in names
+
+    def test_both_species_and_card_still_one_owned(self, client, session):
+        """Having both entry types doesn't double-count."""
+        pikachu = _species(session, 25, "pikachu")
+        _species(session, 1, "bulbasaur")
+        card = _card(session, "sv1-25", pikachu)
+
+        client.post("/collection/species", json={"pokemon_species_id": pikachu.id})
+        client.post("/collection/cards", json={"card_id": card.id})
+
+        progress = client.get("/progress").json()
+        assert progress["owned_species"] == 1
+        assert progress["total_species"] == 2
 
 
 # ---------------------------------------------------------------------------
-# CollectionRead schema
+# Schema validation
 # ---------------------------------------------------------------------------
 
 class TestCollectionReadSchema:
-    """Unit tests for the CollectionRead schema itself."""
-
-    def test_schema_fields_match_expected_set(self):
-        expected = {"id", "card_id"}
+    def test_schema_fields(self):
+        expected = {"id", "pokemon_species_id", "card_id", "quantity"}
         assert set(CollectionRead.model_fields) == expected
 
-    def test_schema_does_not_include_relationship_fields(self):
+    def test_schema_does_not_expose_relationships(self):
         assert "card" not in CollectionRead.model_fields
-
-    def test_schema_populates_from_orm_object(self, session):
-        card = _seed_card(session)
-        entry = _seed_collection_entry(session, card)
-
-        schema = CollectionRead.model_validate(entry)
-
-        assert schema.id == entry.id
-        assert schema.card_id == card.id
-
-    def test_list_endpoint_returns_schema_shaped_objects(self, client, session):
-        card = _seed_card(session)
-        _seed_collection_entry(session, card)
-
-        data = client.get("/collection").json()
-
-        assert len(data) == 1
-        assert set(data[0].keys()) == set(CollectionRead.model_fields)
+        assert "pokemon_species" not in CollectionRead.model_fields

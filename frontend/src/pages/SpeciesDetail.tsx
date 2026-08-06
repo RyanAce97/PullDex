@@ -1,144 +1,187 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useSpeciesDetail } from "../hooks/useSpeciesDetail";
+import { useQuery } from "@tanstack/react-query";
+import { getCardsByDex } from "../api/cards";
+import { getCardEntriesForSpecies } from "../api/collection";
+import { useSpeciesQuery } from "../hooks/useSpeciesQuery";
+import { useMissingSpeciesQuery } from "../hooks/useMissingSpeciesQuery";
 import {
-  useAddToCollection,
+  useAddCardToCollection,
+  useAddSpeciesToCollection,
   useRemoveFromCollection,
+  useRemoveSpeciesFromCollection,
+  useUpdateCardQuantity,
 } from "../hooks/useCollection";
+import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-import type { CardRead } from "../types";
+import type { CardRead, CollectionRead } from "../types";
 
 export function SpeciesDetail() {
   const { speciesId } = useParams<{ speciesId: string }>();
   const navigate = useNavigate();
   const numericId = Number(speciesId);
 
-  const { data, isLoading, error } = useSpeciesDetail(numericId);
-  const addMutation = useAddToCollection();
-  const removeMutation = useRemoveFromCollection();
+  const speciesQuery = useSpeciesQuery();
+  const missingQuery = useMissingSpeciesQuery();
+  const species = speciesQuery.data?.find((s) => s.id === numericId);
 
-  // Track which card IDs have in-flight mutations to disable only those buttons.
-  const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(
-    () => new Set(),
-  );
+  const cardsQuery = useQuery({
+    queryKey: queryKeys.cardsByDex(species?.national_dex_number ?? 0),
+    queryFn: () => getCardsByDex(species!.national_dex_number),
+    enabled: !!species,
+  });
 
-  // Prevent double-click race conditions: track entry IDs already being removed.
-  const removingEntryIds = useRef<Set<number>>(new Set());
+  const entriesQuery = useQuery({
+    queryKey: ["collection", "species", numericId, "cards"],
+    queryFn: () => getCardEntriesForSpecies(numericId),
+    enabled: numericId > 0,
+  });
 
-  const handleAdd = useCallback(
+  const addSpecies = useAddSpeciesToCollection();
+  const removeSpecies = useRemoveSpeciesFromCollection();
+  const addCard = useAddCardToCollection();
+  const updateQuantity = useUpdateCardQuantity();
+  const removeEntry = useRemoveFromCollection();
+
+  const isLoading = speciesQuery.isLoading || missingQuery.isLoading || cardsQuery.isLoading || entriesQuery.isLoading;
+  const error = speciesQuery.error || missingQuery.error || cardsQuery.error || entriesQuery.error;
+
+  const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(() => new Set());
+
+  const owned = species && missingQuery.data ? !missingQuery.data.has(species.id) : false;
+  const cards = cardsQuery.data ?? [];
+  const entries = entriesQuery.data ?? [];
+
+  // Map card_id -> collection entry
+  const entryByCardId = new Map<number, CollectionRead>();
+  for (const e of entries) {
+    if (e.card_id !== null) entryByCardId.set(e.card_id, e);
+  }
+
+  const handleAddCard = useCallback(
     (cardId: number) => {
       if (pendingCardIds.has(cardId)) return;
-
       setPendingCardIds((prev) => new Set(prev).add(cardId));
-      addMutation.mutate(cardId, {
-        onSettled: () => {
-          setPendingCardIds((prev) => {
-            const next = new Set(prev);
-            next.delete(cardId);
-            return next;
-          });
+      addCard.mutate(
+        { cardId, quantity: 1 },
+        {
+          onSettled: () => {
+            setPendingCardIds((prev) => { const n = new Set(prev); n.delete(cardId); return n; });
+          },
         },
-      });
+      );
     },
-    [addMutation, pendingCardIds],
+    [addCard, pendingCardIds],
   );
 
-  const handleRemove = useCallback(
-    (cardId: number) => {
-      if (!data || pendingCardIds.has(cardId)) return;
-
-      const entry = data.collectionEntries.find((e) => e.card_id === cardId);
-      if (!entry || removingEntryIds.current.has(entry.id)) return;
-
-      removingEntryIds.current.add(entry.id);
-      setPendingCardIds((prev) => new Set(prev).add(cardId));
-
-      removeMutation.mutate(entry.id, {
-        onSettled: () => {
-          removingEntryIds.current.delete(entry.id);
-          setPendingCardIds((prev) => {
-            const next = new Set(prev);
-            next.delete(cardId);
-            return next;
-          });
-        },
-      });
+  const handleIncrement = useCallback(
+    (entry: CollectionRead) => {
+      updateQuantity.mutate({ entryId: entry.id, quantity: entry.quantity + 1 });
     },
-    [data, removeMutation, pendingCardIds],
+    [updateQuantity],
   );
 
-  if (isLoading) {
-    return <LoadingSpinner message="Loading species details..." />;
-  }
+  const handleDecrement = useCallback(
+    (entry: CollectionRead) => {
+      if (entry.quantity <= 1) {
+        removeEntry.mutate(entry.id);
+      } else {
+        updateQuantity.mutate({ entryId: entry.id, quantity: entry.quantity - 1 });
+      }
+    },
+    [updateQuantity, removeEntry],
+  );
 
-  if (error) {
-    return <ErrorState message="Failed to load species data." />;
-  }
-
-  if (!data) {
-    return <EmptyState icon="❓" message="Species not found." />;
-  }
-
-  const { species, owned, cards, ownedCardIds } = data;
+  if (isLoading) return <LoadingSpinner message="Loading species details..." />;
+  if (error) return <ErrorState message="Failed to load species data." />;
+  if (!species) return <EmptyState icon="❓" message="Species not found." />;
 
   return (
     <div className="space-y-6">
       <button
-        onClick={() => navigate("/pokedex")}
+        onClick={() => navigate("/collection")}
         className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
       >
-        ← Back to Pokédex
+        ← Back to Collection
       </button>
 
       {/* Species header */}
-      <div className="flex items-center gap-4">
-        <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-100 text-gray-700 text-lg font-mono font-bold">
-          #{species.national_dex_number}
-        </span>
-        <div>
-          <h2 className="text-2xl font-bold capitalize">{species.name}</h2>
-          <div className="flex items-center gap-3 mt-1">
-            {species.generation !== null && (
-              <span className="text-sm text-gray-500">
-                Generation {species.generation}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-100 text-gray-700 text-lg font-mono font-bold">
+            #{species.national_dex_number}
+          </span>
+          <div>
+            <h2 className="text-2xl font-bold capitalize">{species.name}</h2>
+            <div className="flex items-center gap-3 mt-1">
+              {species.generation !== null && (
+                <span className="text-sm text-gray-500">Generation {species.generation}</span>
+              )}
+              <span
+                className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                  owned ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                }`}
+              >
+                {owned ? "✓ Owned" : "Missing"}
               </span>
-            )}
-            <span
-              className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                owned
-                  ? "bg-green-100 text-green-700"
-                  : "bg-red-100 text-red-700"
-              }`}
-            >
-              {owned ? "Owned" : "Missing"}
-            </span>
+            </div>
           </div>
         </div>
+        {/* Quick species toggle */}
+        <button
+          onClick={() => owned ? removeSpecies.mutate(numericId) : addSpecies.mutate(numericId)}
+          disabled={addSpecies.isPending || removeSpecies.isPending}
+          className={`text-sm font-semibold px-4 py-2 rounded-md transition-colors disabled:opacity-50 ${
+            owned
+              ? "bg-red-100 text-red-700 hover:bg-red-200"
+              : "bg-indigo-600 text-white hover:bg-indigo-700"
+          }`}
+        >
+          {owned ? "Remove from Dex" : "Mark as Owned"}
+        </button>
       </div>
 
-      {/* Cards section */}
+      {/* Tracked cards section */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          Cards ({cards.length})
+          Tracked Cards ({entries.length} tracked)
+        </h3>
+
+        {entries.length > 0 && (
+          <div className="space-y-2 mb-6">
+            {entries.map((entry) => {
+              const card = cards.find((c) => c.id === entry.card_id);
+              return (
+                <TrackedCardRow
+                  key={entry.id}
+                  entry={entry}
+                  card={card}
+                  onIncrement={() => handleIncrement(entry)}
+                  onDecrement={() => handleDecrement(entry)}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+          Available Cards ({cards.length})
         </h3>
 
         {cards.length === 0 ? (
-          <EmptyState
-            icon="🃏"
-            message="No cards found for this Pokémon in the database."
-          />
+          <EmptyState icon="🃏" message="No cards found for this Pokémon in the database." />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {cards.map((card) => (
-              <CardListItem
+              <AvailableCardItem
                 key={card.id}
                 card={card}
-                isOwned={ownedCardIds.has(card.id)}
-                onAdd={() => handleAdd(card.id)}
-                onRemove={() => handleRemove(card.id)}
+                isTracked={entryByCardId.has(card.id)}
+                quantity={entryByCardId.get(card.id)?.quantity ?? 0}
                 isPending={pendingCardIds.has(card.id)}
+                onAdd={() => handleAddCard(card.id)}
               />
             ))}
           </div>
@@ -148,62 +191,95 @@ export function SpeciesDetail() {
   );
 }
 
-interface CardListItemProps {
-  card: CardRead;
-  isOwned: boolean;
-  onAdd: () => void;
-  onRemove: () => void;
-  isPending: boolean;
-}
+// ---------------------------------------------------------------------------
 
-function CardListItem({
+function TrackedCardRow({
+  entry,
   card,
-  isOwned,
-  onAdd,
-  onRemove,
-  isPending,
-}: CardListItemProps) {
+  onIncrement,
+  onDecrement,
+}: {
+  entry: CollectionRead;
+  card: CardRead | undefined;
+  onIncrement: () => void;
+  onDecrement: () => void;
+}) {
   return (
-    <div
-      className={`border rounded-lg p-3 flex items-center gap-3 transition-colors ${
-        isOwned ? "bg-green-50 border-green-200" : "bg-white border-gray-200"
-      }`}
-    >
-      {card.image_url ? (
-        <img
-          src={card.image_url}
-          alt={card.api_card_id ?? "Card"}
-          className="w-16 h-22 object-contain rounded"
-          loading="lazy"
-        />
+    <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
+      {card?.image_url ? (
+        <img src={card.image_url} alt="" className="w-12 h-16 object-contain rounded" loading="lazy" />
       ) : (
-        <div className="w-16 h-22 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
-          No image
+        <div className="w-12 h-16 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
+          No img
         </div>
       )}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900 truncate">
-          {card.api_card_id ?? `Card #${card.id}`}
+          {card?.api_card_id ?? `Card #${entry.card_id}`}
         </p>
-        {card.card_number && (
-          <p className="text-xs text-gray-500">#{card.card_number}</p>
-        )}
-        {card.rarity && (
-          <p className="text-xs text-gray-500">{card.rarity}</p>
-        )}
+        {card?.rarity && <p className="text-xs text-gray-500">{card.rarity}</p>}
       </div>
-      <button
-        onClick={isOwned ? onRemove : onAdd}
-        disabled={isPending}
-        className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 ${
-          isOwned
-            ? "bg-red-100 text-red-700 hover:bg-red-200"
-            : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-        }`}
-        aria-label={isOwned ? "Remove from collection" : "Add to collection"}
-      >
-        {isPending ? "..." : isOwned ? "Remove" : "Add"}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onDecrement}
+          className="w-7 h-7 flex items-center justify-center rounded bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold text-sm"
+        >
+          −
+        </button>
+        <span className="text-sm font-semibold w-6 text-center">{entry.quantity}</span>
+        <button
+          onClick={onIncrement}
+          className="w-7 h-7 flex items-center justify-center rounded bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold text-sm"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AvailableCardItem({
+  card,
+  isTracked,
+  quantity,
+  isPending,
+  onAdd,
+}: {
+  card: CardRead;
+  isTracked: boolean;
+  quantity: number;
+  isPending: boolean;
+  onAdd: () => void;
+}) {
+  return (
+    <div
+      className={`border rounded-lg p-3 flex items-center gap-3 transition-colors ${
+        isTracked ? "bg-green-50 border-green-200" : "bg-white border-gray-200"
+      }`}
+    >
+      {card.image_url ? (
+        <img src={card.image_url} alt={card.api_card_id ?? "Card"} className="w-14 h-20 object-contain rounded" loading="lazy" />
+      ) : (
+        <div className="w-14 h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No img</div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900 truncate">{card.api_card_id ?? `Card #${card.id}`}</p>
+        {card.card_number && <p className="text-xs text-gray-500">#{card.card_number}</p>}
+        {card.rarity && <p className="text-xs text-gray-500">{card.rarity}</p>}
+      </div>
+      {isTracked ? (
+        <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">
+          ×{quantity}
+        </span>
+      ) : (
+        <button
+          onClick={onAdd}
+          disabled={isPending}
+          className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200 disabled:opacity-50"
+        >
+          {isPending ? "..." : "Add"}
+        </button>
+      )}
     </div>
   );
 }

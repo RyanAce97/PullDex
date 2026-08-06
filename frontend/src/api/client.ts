@@ -64,4 +64,16 @@ export const apiClient = {
       throw new ApiError(response.status, response.statusText, body);
     }
   },
+
+  async patch<T>(path: string, body: unknown): Promise<T> {
+    const response = await fetch(new URL(path, BASE_URL).toString(), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    return handleResponse<T>(response);
+  },
 };

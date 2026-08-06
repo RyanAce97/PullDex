@@ -21,17 +21,29 @@ def get_total_species_count(session: Session) -> int:
 def get_owned_species_ids(session: Session) -> set[int]:
     """Return the set of PokemonSpecies IDs the user owns.
 
-    A species is owned if there is at least one Collection entry for any
-    Card linked to that species.  Duplicate cards/entries do not affect
-    the result — each species appears at most once.
+    A species is owned if EITHER:
+      - A direct species-level Collection entry exists (pokemon_species_id set), OR
+      - A card-level Collection entry exists for any card linked to that species.
+
+    Duplicate entries do not affect the result — each species appears at most once.
     """
-    statement = (
+    # Direct species-level entries
+    direct_stmt = (
+        select(Collection.pokemon_species_id)
+        .where(Collection.pokemon_species_id.is_not(None))  # type: ignore[union-attr]
+    )
+    direct_ids = set(session.exec(direct_stmt).all())
+
+    # Card-level entries (existing logic)
+    card_stmt = (
         select(Card.pokemon_species_id)
         .join(Collection, Collection.card_id == Card.id)
         .where(Card.pokemon_species_id.is_not(None))  # type: ignore[union-attr]
         .distinct()
     )
-    return set(session.exec(statement).all())
+    card_ids = set(session.exec(card_stmt).all())
+
+    return direct_ids | card_ids
 
 
 def get_owned_species_count(session: Session) -> int:

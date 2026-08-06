@@ -1,27 +1,33 @@
-"""Response schemas for collection-related API endpoints.
-
-These are plain Pydantic models used as ``response_model`` on routes.
-They decouple the public API contract from the SQLModel table models,
-preventing internal fields (relationship objects, SQLAlchemy state, etc.)
-from leaking into responses.
-"""
+"""Response and request schemas for collection endpoints."""
 
 from pydantic import BaseModel, ConfigDict
 
 
 class CollectionRead(BaseModel):
-    """Public representation of a Collection entry returned by the API.
-
-    Each entry represents a card the user owns in their Living Dex.
-    """
+    """Public representation of a collection entry."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    pokemon_species_id: int | None
     card_id: int | None
+    quantity: int
 
 
-class CollectionCreate(BaseModel):
-    """Schema for adding a card to the collection."""
+class CollectionSpeciesCreate(BaseModel):
+    """Add a species to the collection (fast entry — no specific card)."""
+
+    pokemon_species_id: int
+
+
+class CollectionCardCreate(BaseModel):
+    """Add a specific card to the collection."""
 
     card_id: int
+    quantity: int = 1
+
+
+class CollectionCardUpdate(BaseModel):
+    """Update quantity of a card-level collection entry."""
+
+    quantity: int

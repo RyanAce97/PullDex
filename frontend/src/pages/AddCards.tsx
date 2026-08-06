@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useCardSearch } from "../hooks/useCardSearch";
 import {
-  useAddToCollection,
+  useAddCardToCollection,
   useCollectionEntries,
   useRemoveFromCollection,
 } from "../hooks/useCollection";
@@ -15,7 +15,7 @@ export function AddCards() {
   const { data: cards, isLoading, error } = useCardSearch(search);
   const { data: collection } = useCollectionEntries();
 
-  const addMutation = useAddToCollection();
+  const addMutation = useAddCardToCollection();
   const removeMutation = useRemoveFromCollection();
 
   const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(
@@ -34,15 +34,18 @@ export function AddCards() {
     (cardId: number) => {
       if (pendingCardIds.has(cardId)) return;
       setPendingCardIds((prev) => new Set(prev).add(cardId));
-      addMutation.mutate(cardId, {
-        onSettled: () => {
-          setPendingCardIds((prev) => {
-            const next = new Set(prev);
-            next.delete(cardId);
-            return next;
-          });
+      addMutation.mutate(
+        { cardId, quantity: 1 },
+        {
+          onSettled: () => {
+            setPendingCardIds((prev) => {
+              const next = new Set(prev);
+              next.delete(cardId);
+              return next;
+            });
+          },
         },
-      });
+      );
     },
     [addMutation, pendingCardIds],
   );

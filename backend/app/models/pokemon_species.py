@@ -4,6 +4,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.models.card import Card
+    from app.models.collection import Collection
 
 
 class PokemonSpecies(SQLModel, table=True):
@@ -34,3 +35,4 @@ class PokemonSpecies(SQLModel, table=True):
     # Relationships
     # ------------------------------------------------------------------
     cards: list["Card"] = Relationship(back_populates="pokemon_species")
+    collection_entries: list["Collection"] = Relationship(back_populates="pokemon_species")
