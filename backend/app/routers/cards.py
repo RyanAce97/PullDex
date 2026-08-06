@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database import get_session
-from app.models.card import Card
+from app.schemas.card import CardRead
 from app.services.card_service import (
     get_card_by_id,
     get_cards_by_national_dex_number,
@@ -15,7 +15,7 @@ from app.services.card_service import (
 router = APIRouter(prefix="/cards", tags=["Cards"])
 
 
-@router.get("", response_model=list[Card], summary="Search cards by name")
+@router.get("", response_model=list[CardRead], summary="Search cards by name")
 def search_cards(
     name: Annotated[str, Query(min_length=1, description="Pokémon name substring to search for.")],
     limit: Annotated[int, Query(ge=1, le=250, description="Maximum results to return.")] = 50,
@@ -32,7 +32,7 @@ def search_cards(
     return search_cards_by_name(session, name, limit=limit, offset=offset)
 
 
-@router.get("/by-dex/{national_dex_number}", response_model=list[Card], summary="Get cards by National Dex number")
+@router.get("/by-dex/{national_dex_number}", response_model=list[CardRead], summary="Get cards by National Dex number")
 def get_cards_by_dex(
     national_dex_number: int,
     limit: Annotated[int, Query(ge=1, le=250, description="Maximum results to return.")] = 100,
@@ -49,7 +49,7 @@ def get_cards_by_dex(
     )
 
 
-@router.get("/{card_id}", response_model=Card, summary="Get a card by ID")
+@router.get("/{card_id}", response_model=CardRead, summary="Get a card by ID")
 def get_card(card_id: int, session=Depends(get_session)):
     """Return a single card by its local database ID.
 

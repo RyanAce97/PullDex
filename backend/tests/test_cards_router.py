@@ -13,6 +13,7 @@ from app.main import app
 from app.models.card import Card
 from app.models.pokemon_species import PokemonSpecies
 from app.models.set import Set
+from app.schemas.card import CardRead
 
 
 # ---------------------------------------------------------------------------
@@ -132,13 +133,19 @@ class TestGetCardById:
 
         data = client.get(f"/cards/{card.id}").json()
 
-        assert "id" in data
-        assert "api_card_id" in data
-        assert "set_id" in data
-        assert "pokemon_species_id" in data
-        assert "rarity" in data
-        assert "card_number" in data
-        assert "image_url" in data
+        # Verify every field declared in CardRead is present.
+        expected_fields = set(CardRead.model_fields)
+        assert expected_fields == set(data.keys())
+
+    def test_response_does_not_expose_orm_relationships(self, client, session, sv1_set, bulbasaur):
+        """SQLModel relationship attributes must not leak into the response."""
+        card = _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        data = client.get(f"/cards/{card.id}").json()
+
+        assert "pokemon_species" not in data
+        assert "set" not in data
+        assert "collection_entries" not in data
 
 
 # ---------------------------------------------------------------------------
@@ -249,3 +256,73 @@ class TestGetCardsByDex:
         offset_results = client.get("/cards/by-dex/1", params={"offset": 2}).json()
 
         assert len(offset_results) == len(all_results) - 2
+
+
+# ---------------------------------------------------------------------------
+# CardRead schema
+# ---------------------------------------------------------------------------
+
+class TestCardReadSchema:
+    """Unit tests for the CardRead schema itself — no HTTP involved."""
+
+    def test_schema_fields_match_expected_set(self):
+        expected = {
+            "id",
+            "api_card_id",
+            "set_id",
+            "pokemon_species_id",
+            "card_number",
+            "rarity",
+            "variant",
+            "image_url",
+        }
+        assert set(CardRead.model_fields) == expected
+
+    def test_schema_does_not_include_relationship_fields(self):
+        field_names = set(CardRead.model_fields)
+        assert "pokemon_species" not in field_names
+        assert "set" not in field_names
+        assert "collection_entries" not in field_names
+
+    def test_schema_populates_from_card_orm_object(self, session, sv1_set, bulbasaur):
+        card = _seed_card(
+            session,
+            "sv1-1",
+            set_id=sv1_set.id,
+            species_id=bulbasaur.id,
+            card_number="001/198",
+            rarity="Rare Holo",
+        )
+
+        schema = CardRead.model_validate(card)
+
+        assert schema.id == card.id
+        assert schema.api_card_id == "sv1-1"
+        assert schema.set_id == sv1_set.id
+        assert schema.pokemon_species_id == bulbasaur.id
+        assert schema.card_number == "001/198"
+        assert schema.rarity == "Rare Holo"
+        assert schema.variant is None
+        assert schema.image_url is None
+
+    def test_schema_accepts_all_none_optional_fields(self):
+        schema = CardRead(id=1, api_card_id=None, set_id=None, pokemon_species_id=None,
+                          card_number=None, rarity=None, variant=None, image_url=None)
+        assert schema.id == 1
+        assert schema.rarity is None
+
+    def test_list_endpoint_returns_carread_shaped_objects(self, client, session, sv1_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        data = client.get("/cards", params={"name": "bulbasaur"}).json()
+
+        assert len(data) == 1
+        assert set(data[0].keys()) == set(CardRead.model_fields)
+
+    def test_by_dex_endpoint_returns_carread_shaped_objects(self, client, session, sv1_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        data = client.get("/cards/by-dex/1").json()
+
+        assert len(data) == 1
+        assert set(data[0].keys()) == set(CardRead.model_fields)
