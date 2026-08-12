@@ -25,3 +25,11 @@ Thumbs.db
 
 # Virtual Environment
 backend/.venv/
+
+# Desktop build artifacts
+desktop/node_modules/
+desktop/release/
+desktop/build/
+backend/dist/
+backend/build/
+backend/*.spec.bak

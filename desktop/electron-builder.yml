@@ -1,0 +1,48 @@
+# electron-builder configuration for PullDex desktop application
+# https://www.electron.build/configuration
+
+appId: com.pulldex.desktop
+productName: PullDex
+copyright: Copyright © 2026 PullDex
+
+# Application metadata
+directories:
+  output: release
+  buildResources: build
+
+# Files to include in the app.asar
+files:
+  - main.js
+  - preload.js
+  - splash.html
+  - error.html
+  - package.json
+
+# Extra resources (NOT packed into asar — accessible on filesystem)
+extraResources:
+  # Bundled FastAPI backend (PyInstaller one-folder output)
+  - from: ../backend/dist/pulldex-backend
+    to: backend
+    filter:
+      - "**/*"
+  # Seed database for first-run initialisation
+  - from: ../backups/pulldex_backup_initial_import.db
+    to: seed/pulldex_seed.db
+
+# Windows target configuration
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+# NSIS installer configuration
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: PullDex
+  # IMPORTANT: Do not delete user data on uninstall
+  deleteAppDataOnUninstall: false

@@ -178,23 +178,4 @@ def remove_from_collection(session: Session, entry_id: int) -> bool:
     return True
 
 
-# ---------------------------------------------------------------------------
-# Query helpers
-# ---------------------------------------------------------------------------
 
-def is_species_owned(session: Session, species_id: int) -> bool:
-    """Check if a species is owned (either directly or via card entries)."""
-    # Direct species entry
-    direct = session.exec(
-        select(Collection).where(Collection.pokemon_species_id == species_id)
-    ).first()
-    if direct:
-        return True
-
-    # Via card entries
-    card_entry = session.exec(
-        select(Collection)
-        .join(Card, Collection.card_id == Card.id)
-        .where(Card.pokemon_species_id == species_id)
-    ).first()
-    return card_entry is not None

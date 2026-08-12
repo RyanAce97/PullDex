@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addCardToCollection,
   addSpeciesToCollection,
-  getCardEntriesForSpecies,
   getCollection,
   removeFromCollection,
   removeSpeciesFromCollection,
@@ -19,14 +18,6 @@ export function useCollectionEntries() {
   return useQuery({
     queryKey: queryKeys.collection,
     queryFn: () => getCollection(10_000),
-  });
-}
-
-export function useCardEntriesForSpecies(speciesId: number) {
-  return useQuery({
-    queryKey: ["collection", "species", speciesId, "cards"],
-    queryFn: () => getCardEntriesForSpecies(speciesId),
-    enabled: speciesId > 0,
   });
 }
 

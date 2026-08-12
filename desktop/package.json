@@ -1,0 +1,21 @@
+{
+  "name": "pulldex-desktop",
+  "version": "0.1.0",
+  "description": "PullDex — Pokémon TCG Living Pokédex Tracker",
+  "main": "main.js",
+  "author": "PullDex",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "31.4.0",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "extends": null
+  }
+}

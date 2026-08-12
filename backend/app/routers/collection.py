@@ -36,7 +36,7 @@ router = APIRouter(prefix="/collection", tags=["Collection"])
 
 @router.get("", response_model=list[CollectionRead], summary="List collection entries")
 def list_collection(
-    limit: Annotated[int, Query(ge=1, le=1000, description="Maximum results to return.")] = 1000,
+    limit: Annotated[int, Query(ge=1, le=10000, description="Maximum results to return.")] = 1000,
     offset: Annotated[int, Query(ge=0, description="Number of results to skip.")] = 0,
     session=Depends(get_session),
 ):

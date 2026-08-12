@@ -8,7 +8,6 @@ from app.database import get_session
 from app.schemas.progress import MissingSpeciesRead
 from app.schemas.recommendation import RecommendationResponse, SetRecommendation
 from app.services.progress_service import (
-    get_missing_species_count,
     get_owned_species_count,
     get_total_species_count,
 )

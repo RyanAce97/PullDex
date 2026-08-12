@@ -10,19 +10,6 @@ from sqlmodel import Session, select
 from app.models.pokemon_species import PokemonSpecies
 
 
-def get_species_by_id(session: Session, species_id: int) -> PokemonSpecies | None:
-    """Return a single PokemonSpecies by its local primary key, or None.
-
-    Args:
-        session:    An open SQLModel Session.
-        species_id: The local integer primary key.
-
-    Returns:
-        The matching :class:`PokemonSpecies`, or ``None``.
-    """
-    return session.get(PokemonSpecies, species_id)
-
-
 def get_species_by_dex_number(session: Session, national_dex_number: int) -> PokemonSpecies | None:
     """Return a single PokemonSpecies by its National Pokédex number, or None.
 

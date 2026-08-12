@@ -5,10 +5,26 @@
  * Centralises baseURL, headers, and error handling in one place.
  *
  * The backend URL is read from the VITE_API_URL environment variable.
- * Defaults to http://localhost:8000 for local development.
+ * - In development: set to http://localhost:8000
+ * - In production/desktop: empty string (same-origin requests)
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const BASE_URL = import.meta.env.VITE_API_URL || "";
+
+/**
+ * Build a full URL string from a path and optional query params.
+ * When BASE_URL is empty, uses the current page origin (same-origin).
+ */
+function buildUrl(path: string, params?: Record<string, string | number>): string {
+  const base = BASE_URL || window.location.origin;
+  const url = new URL(path, base);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, String(value));
+    });
+  }
+  return url.toString();
+}
 
 export class ApiError extends Error {
   constructor(
@@ -31,20 +47,14 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export const apiClient = {
   async get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-    const url = new URL(path, BASE_URL);
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.set(key, String(value));
-      });
-    }
-    const response = await fetch(url.toString(), {
+    const response = await fetch(buildUrl(path, params), {
       headers: { Accept: "application/json" },
     });
     return handleResponse<T>(response);
   },
 
   async post<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(new URL(path, BASE_URL).toString(), {
+    const response = await fetch(buildUrl(path), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -56,7 +66,7 @@ export const apiClient = {
   },
 
   async delete(path: string): Promise<void> {
-    const response = await fetch(new URL(path, BASE_URL).toString(), {
+    const response = await fetch(buildUrl(path), {
       method: "DELETE",
     });
     if (!response.ok) {
@@ -66,7 +76,7 @@ export const apiClient = {
   },
 
   async patch<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(new URL(path, BASE_URL).toString(), {
+    const response = await fetch(buildUrl(path), {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",

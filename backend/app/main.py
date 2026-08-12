@@ -1,10 +1,14 @@
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.config import settings
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, run_migrations
 import app.models  # noqa: F401 — registers all table metadata with SQLModel
 from app.routers import cards as cards_router
 from app.routers import collection as collection_router
@@ -15,12 +19,38 @@ from app.routers import species as species_router
 
 
 # ---------------------------------------------------------------------------
+# Static files directory (desktop mode only)
+# ---------------------------------------------------------------------------
+
+def _get_static_dir() -> Path | None:
+    """Resolve the path to bundled frontend static files.
+
+    In desktop/packaged mode (PyInstaller), static files are bundled at
+    ``{_MEIPASS}/static/``.  In development, this returns None so the
+    app behaves as a pure API server.
+    """
+    if getattr(sys, "frozen", False):
+        bundle_dir = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        static = bundle_dir / "static"
+        if static.is_dir():
+            return static
+    return None
+
+
+_STATIC_DIR = _get_static_dir()
+
+
+# ---------------------------------------------------------------------------
 # Lifespan — startup / shutdown
 # ---------------------------------------------------------------------------
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run startup tasks before the first request, cleanup on shutdown."""
+    # In desktop mode, run Alembic migrations before anything else.
+    if settings.pulldex_desktop:
+        run_migrations()
+
     # Ensure the database file and tables exist.
     create_db_and_tables()
     yield
@@ -35,8 +65,8 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="Pokémon TCG Living Pokédex tracker — pull, track, and discover.",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if not settings.pulldex_desktop else None,
+    redoc_url="/redoc" if not settings.pulldex_desktop else None,
     lifespan=lifespan,
 )
 
@@ -60,17 +90,48 @@ app.include_router(species_router.router)
 # Routes
 # ---------------------------------------------------------------------------
 
-@app.get("/", tags=["General"], summary="Root")
-def root():
-    """Welcome endpoint — confirms the API is reachable."""
-    return {
-        "app": settings.app_name,
-        "version": settings.app_version,
-        "docs": "/docs",
-    }
-
-
 @app.get("/health", tags=["General"], summary="Health check")
 def health():
     """Health check endpoint for uptime monitors and orchestrators."""
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Static file serving (desktop mode only)
+# ---------------------------------------------------------------------------
+
+if _STATIC_DIR:
+    # Serve bundled frontend assets (JS, CSS, images).
+    app.mount(
+        "/assets",
+        StaticFiles(directory=_STATIC_DIR / "assets"),
+        name="static-assets",
+    )
+
+    @app.get("/", include_in_schema=False)
+    async def serve_index():
+        """Serve the React SPA index.html at the root."""
+        return FileResponse(_STATIC_DIR / "index.html")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def serve_spa(path: str):
+        """Catch-all: serve index.html for client-side routing.
+
+        Only triggered for paths that did not match an API route above.
+        """
+        # If the path corresponds to a real file in static dir, serve it.
+        file_path = _STATIC_DIR / path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        # Otherwise, return index.html for SPA routing.
+        return FileResponse(_STATIC_DIR / "index.html")
+else:
+    # Development mode — simple root/welcome endpoint.
+    @app.get("/", tags=["General"], summary="Root")
+    def root():
+        """Welcome endpoint — confirms the API is reachable."""
+        return {
+            "app": settings.app_name,
+            "version": settings.app_version,
+            "docs": "/docs",
+        }

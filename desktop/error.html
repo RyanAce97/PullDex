@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PullDex — Error</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 2rem;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    h1 {
+      font-size: 1.5rem;
+      color: #ef4444;
+      margin-bottom: 1rem;
+    }
+    .message {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .details-label {
+      font-size: 0.8rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+    #error-details {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 1rem;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-y: auto;
+      max-height: 300px;
+    }
+    .help {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #1e293b;
+      border-radius: 6px;
+      border-left: 3px solid #fbbf24;
+    }
+    .help h2 {
+      font-size: 0.9rem;
+      color: #fbbf24;
+      margin-bottom: 0.5rem;
+    }
+    .help p {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .help code {
+      background: #334155;
+      padding: 0.1em 0.4em;
+      border-radius: 3px;
+      font-family: 'Consolas', monospace;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>PullDex could not start</h1>
+  <p class="message">
+    The application backend failed to start. This might be caused by a port
+    conflict, a corrupted installation, or a database issue.
+  </p>
+  <p class="details-label">Error Details</p>
+  <pre id="error-details">Loading error details...</pre>
+  <div class="help">
+    <h2>Troubleshooting</h2>
+    <p>
+      Your collection database is stored at:<br>
+      <code>%LOCALAPPDATA%\PullDex\pulldex.db</code>
+    </p>
+    <p style="margin-top: 0.5rem;">
+      Backend logs are saved to:<br>
+      <code>%LOCALAPPDATA%\PullDex\logs\backend.log</code>
+    </p>
+    <p style="margin-top: 0.5rem;">
+      Try restarting the application. If the problem persists, check the
+      log file above for details, or try reinstalling PullDex (your
+      collection will be preserved).
+    </p>
+  </div>
+</body>
+</html>

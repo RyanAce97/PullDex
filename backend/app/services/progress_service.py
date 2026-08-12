@@ -51,26 +51,6 @@ def get_owned_species_count(session: Session) -> int:
     return len(get_owned_species_ids(session))
 
 
-def get_missing_species_count(session: Session) -> int:
-    """Return the number of species the user does NOT own."""
-    total = get_total_species_count(session)
-    owned = get_owned_species_count(session)
-    return total - owned
-
-
-def get_completion_percentage(session: Session) -> float:
-    """Return the Living Dex completion percentage (0.0–100.0).
-
-    Returns 0.0 if there are no species in the database (avoids division by zero).
-    Rounded to one decimal place.
-    """
-    total = get_total_species_count(session)
-    if total == 0:
-        return 0.0
-    owned = get_owned_species_count(session)
-    return round((owned / total) * 100, 1)
-
-
 def get_progress(session: Session) -> dict:
     """Return a summary dict of Living Dex progress.
 

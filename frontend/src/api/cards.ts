@@ -1,6 +1,5 @@
 import { apiClient } from "./client";
-import type { CardRead } from "../types";
-import type { CardSearchResult } from "../types";
+import type { CardRead, CardSearchResult } from "../types";
 
 export async function getCardsByDex(
   nationalDexNumber: number,
@@ -11,14 +10,6 @@ export async function getCardsByDex(
     limit,
     offset,
   });
-}
-
-export async function searchCards(
-  name: string,
-  limit: number = 50,
-  offset: number = 0,
-): Promise<CardRead[]> {
-  return apiClient.get<CardRead[]>("/cards", { name, limit, offset });
 }
 
 export async function searchCardsFull(
