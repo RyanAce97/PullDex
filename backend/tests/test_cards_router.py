@@ -14,6 +14,7 @@ from app.models.card import Card
 from app.models.pokemon_species import PokemonSpecies
 from app.models.set import Set
 from app.schemas.card import CardRead
+from app.schemas.card_search import CardSearchResult
 
 
 # ---------------------------------------------------------------------------
@@ -22,14 +23,7 @@ from app.schemas.card import CardRead
 
 @pytest.fixture(name="session")
 def session_fixture():
-    """In-memory SQLite session with the full schema.
-
-    Uses a single connection held open for the duration of the fixture so
-    that the tables created by ``SQLModel.metadata.create_all`` remain
-    visible to every query made within the same test.  Plain
-    ``sqlite://`` (no filename) creates a per-connection database; without
-    pinning to one connection the tables would disappear between calls.
-    """
+    """In-memory SQLite session with the full schema."""
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     connection = engine.connect()
     SQLModel.metadata.create_all(connection)
@@ -40,13 +34,7 @@ def session_fixture():
 
 @pytest.fixture(name="client")
 def client_fixture(session):
-    """TestClient with the session dependency overridden.
-
-    Instantiated directly (not as a context manager) so that Starlette's
-    lifespan hooks never fire.  This prevents ``create_db_and_tables()``
-    from touching the real on-disk SQLite database.  The in-memory schema
-    is already created by ``session_fixture``.
-    """
+    """TestClient with the session dependency overridden."""
     def override_get_session():
         yield session
 
@@ -62,6 +50,15 @@ def client_fixture(session):
 @pytest.fixture(name="sv1_set")
 def sv1_set_fixture(session):
     tcg_set = Set(api_set_id="sv1", name="Scarlet & Violet", series="Scarlet & Violet")
+    session.add(tcg_set)
+    session.commit()
+    session.refresh(tcg_set)
+    return tcg_set
+
+
+@pytest.fixture(name="obs_set")
+def obs_set_fixture(session):
+    tcg_set = Set(api_set_id="sv3", name="Obsidian Flames", series="Scarlet & Violet")
     session.add(tcg_set)
     session.commit()
     session.refresh(tcg_set)
@@ -86,6 +83,15 @@ def pikachu_fixture(session):
     return species
 
 
+@pytest.fixture(name="charizard")
+def charizard_fixture(session):
+    species = PokemonSpecies(national_dex_number=6, name="charizard", generation=1)
+    session.add(species)
+    session.commit()
+    session.refresh(species)
+    return species
+
+
 def _seed_card(
     session: Session,
     api_card_id: str,
@@ -93,6 +99,7 @@ def _seed_card(
     species_id: int | None = None,
     card_number: str = "001/198",
     rarity: str = "Common",
+    image_url: str | None = None,
 ) -> Card:
     card = Card(
         api_card_id=api_card_id,
@@ -100,6 +107,7 @@ def _seed_card(
         pokemon_species_id=species_id,
         card_number=card_number,
         rarity=rarity,
+        image_url=image_url,
     )
     session.add(card)
     session.commit()
@@ -209,20 +217,21 @@ class TestSearchCards:
 
 
 # ---------------------------------------------------------------------------
-# GET /cards/by-dex/{national_dex_number}
+# GET /cards/by-dex/{national_dex_number}  (now returns CardSearchResult)
 # ---------------------------------------------------------------------------
 
 class TestGetCardsByDex:
     def test_returns_cards_for_dex_number(self, client, session, sv1_set, bulbasaur):
         _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
-        _seed_card(session, "sv1-2", set_id=sv1_set.id, species_id=bulbasaur.id)
+        _seed_card(session, "sv1-2", set_id=sv1_set.id, species_id=bulbasaur.id, card_number="002/198")
 
         response = client.get("/cards/by-dex/1")
 
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 2
-        assert all(c["pokemon_species_id"] == bulbasaur.id for c in data)
+        # Now returns CardSearchResult format with pokemon_name instead of pokemon_species_id
+        assert all(c["pokemon_name"] == "bulbasaur" for c in data)
 
     def test_returns_empty_list_for_unknown_dex_number(self, client):
         response = client.get("/cards/by-dex/999")
@@ -256,6 +265,284 @@ class TestGetCardsByDex:
         offset_results = client.get("/cards/by-dex/1", params={"offset": 2}).json()
 
         assert len(offset_results) == len(all_results) - 2
+
+    def test_includes_set_name(self, client, session, sv1_set, bulbasaur):
+        """by-dex endpoint now returns set_name for display purposes."""
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        response = client.get("/cards/by-dex/1")
+        data = response.json()
+
+        assert data[0]["set_name"] == "Scarlet & Violet"
+        assert data[0]["set_code"] == "sv1"
+
+    def test_response_has_card_search_result_fields(self, client, session, sv1_set, bulbasaur):
+        """Verify the endpoint returns CardSearchResult-shaped objects."""
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        data = client.get("/cards/by-dex/1").json()
+        expected_fields = set(CardSearchResult.model_fields)
+        assert expected_fields == set(data[0].keys())
+
+
+# ---------------------------------------------------------------------------
+# GET /cards/search (paginated)
+# ---------------------------------------------------------------------------
+
+class TestSearchCardsPaginated:
+    def test_returns_paginated_response(self, client, session, sv1_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        response = client.get("/cards/search", params={"q": "bulbasaur"})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+        assert "page" in data
+        assert "page_size" in data
+        assert "total_pages" in data
+        assert data["total"] == 1
+        assert data["page"] == 1
+        assert len(data["items"]) == 1
+
+    def test_requires_at_least_one_criterion(self, client):
+        """Must provide q, species, set_name, or rarity."""
+        response = client.get("/cards/search")
+        assert response.status_code == 422
+
+    def test_search_by_species_name(self, client, session, sv1_set, bulbasaur, pikachu):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+        _seed_card(session, "sv1-25", set_id=sv1_set.id, species_id=pikachu.id)
+
+        response = client.get("/cards/search", params={"q": "bulbasaur"})
+        data = response.json()
+
+        assert data["total"] == 1
+        assert data["items"][0]["pokemon_name"] == "bulbasaur"
+
+    def test_pagination_page_and_page_size(self, client, session, sv1_set, bulbasaur):
+        for i in range(10):
+            _seed_card(session, f"sv1-b{i}", set_id=sv1_set.id, species_id=bulbasaur.id, card_number=f"{i:03d}/198")
+
+        response = client.get("/cards/search", params={"q": "bulbasaur", "page_size": 3, "page": 1})
+        data = response.json()
+
+        assert data["total"] == 10
+        assert data["page"] == 1
+        assert data["page_size"] == 3
+        assert data["total_pages"] == 4
+        assert len(data["items"]) == 3
+
+    def test_pagination_page_2(self, client, session, sv1_set, bulbasaur):
+        for i in range(10):
+            _seed_card(session, f"sv1-b{i}", set_id=sv1_set.id, species_id=bulbasaur.id, card_number=f"{i:03d}/198")
+
+        response = client.get("/cards/search", params={"q": "bulbasaur", "page_size": 3, "page": 2})
+        data = response.json()
+
+        assert data["page"] == 2
+        assert len(data["items"]) == 3
+
+    def test_pagination_last_page_partial(self, client, session, sv1_set, bulbasaur):
+        for i in range(10):
+            _seed_card(session, f"sv1-b{i}", set_id=sv1_set.id, species_id=bulbasaur.id, card_number=f"{i:03d}/198")
+
+        response = client.get("/cards/search", params={"q": "bulbasaur", "page_size": 3, "page": 4})
+        data = response.json()
+
+        assert data["page"] == 4
+        assert len(data["items"]) == 1  # 10 items, page_size=3, page 4 has 1
+
+    def test_pagination_beyond_results(self, client, session, sv1_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        response = client.get("/cards/search", params={"q": "bulbasaur", "page": 99})
+        data = response.json()
+
+        assert data["total"] == 1
+        assert len(data["items"]) == 0
+
+    def test_search_more_than_50_results(self, client, session, sv1_set, bulbasaur):
+        """Can access cards beyond the old 50-result limit."""
+        for i in range(60):
+            _seed_card(session, f"sv1-b{i}", set_id=sv1_set.id, species_id=bulbasaur.id, card_number=f"{i:03d}/198")
+
+        # Page 1
+        page1 = client.get("/cards/search", params={"q": "bulbasaur", "page": 1}).json()
+        assert page1["total"] == 60
+        assert len(page1["items"]) == 50
+
+        # Page 2 — access cards beyond #50
+        page2 = client.get("/cards/search", params={"q": "bulbasaur", "page": 2}).json()
+        assert len(page2["items"]) == 10
+
+    def test_filter_by_species(self, client, session, sv1_set, bulbasaur, pikachu):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+        _seed_card(session, "sv1-25", set_id=sv1_set.id, species_id=pikachu.id)
+
+        response = client.get("/cards/search", params={"species": "pikachu"})
+        data = response.json()
+
+        assert data["total"] == 1
+        assert data["items"][0]["pokemon_name"] == "pikachu"
+
+    def test_filter_by_set_name(self, client, session, sv1_set, obs_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+        _seed_card(session, "sv3-6", set_id=obs_set.id, species_id=bulbasaur.id)
+
+        response = client.get("/cards/search", params={"set_name": "Obsidian"})
+        data = response.json()
+
+        assert data["total"] == 1
+        assert data["items"][0]["set_name"] == "Obsidian Flames"
+
+    def test_filter_by_set_code(self, client, session, sv1_set, obs_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+        _seed_card(session, "sv3-6", set_id=obs_set.id, species_id=bulbasaur.id)
+
+        response = client.get("/cards/search", params={"set_name": "sv3"})
+        data = response.json()
+
+        assert data["total"] == 1
+        assert data["items"][0]["set_code"] == "sv3"
+
+    def test_filter_by_rarity(self, client, session, sv1_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id, rarity="Common")
+        _seed_card(session, "sv1-2", set_id=sv1_set.id, species_id=bulbasaur.id, rarity="Rare Holo")
+
+        response = client.get("/cards/search", params={"rarity": "Rare Holo", "species": "bulbasaur"})
+        data = response.json()
+
+        assert data["total"] == 1
+        assert data["items"][0]["rarity"] == "Rare Holo"
+
+    def test_combined_filters(self, client, session, sv1_set, obs_set, bulbasaur, charizard):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id, rarity="Common")
+        _seed_card(session, "sv3-6", set_id=obs_set.id, species_id=charizard.id, rarity="Double Rare")
+        _seed_card(session, "sv1-6", set_id=sv1_set.id, species_id=charizard.id, rarity="Rare Holo")
+
+        # Charizard + Obsidian Flames + Double Rare
+        response = client.get("/cards/search", params={
+            "species": "charizard",
+            "set_name": "Obsidian",
+            "rarity": "Double Rare",
+        })
+        data = response.json()
+
+        assert data["total"] == 1
+        assert data["items"][0]["pokemon_name"] == "charizard"
+        assert data["items"][0]["set_name"] == "Obsidian Flames"
+        assert data["items"][0]["rarity"] == "Double Rare"
+
+    def test_combined_filters_no_match(self, client, session, sv1_set, obs_set, bulbasaur, charizard):
+        _seed_card(session, "sv3-6", set_id=obs_set.id, species_id=charizard.id, rarity="Double Rare")
+
+        response = client.get("/cards/search", params={
+            "species": "charizard",
+            "set_name": "Obsidian",
+            "rarity": "Common",
+        })
+        data = response.json()
+
+        assert data["total"] == 0
+        assert data["items"] == []
+
+    def test_empty_results(self, client, session, sv1_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        response = client.get("/cards/search", params={"q": "nonexistent_pokemon_xyz"})
+        data = response.json()
+
+        assert data["total"] == 0
+        assert data["items"] == []
+        assert data["total_pages"] == 0
+
+    def test_invalid_page_zero(self, client):
+        response = client.get("/cards/search", params={"q": "test", "page": 0})
+        assert response.status_code == 422
+
+    def test_invalid_page_size_zero(self, client):
+        response = client.get("/cards/search", params={"q": "test", "page_size": 0})
+        assert response.status_code == 422
+
+    def test_invalid_page_size_over_100(self, client):
+        response = client.get("/cards/search", params={"q": "test", "page_size": 101})
+        assert response.status_code == 422
+
+    def test_search_by_card_number(self, client, session, sv1_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id, card_number="025/198")
+
+        response = client.get("/cards/search", params={"q": "025/198"})
+        data = response.json()
+
+        assert data["total"] == 1
+        assert data["items"][0]["card_number"] == "025/198"
+
+    def test_search_by_set_code(self, client, session, sv1_set, obs_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+        _seed_card(session, "sv3-1", set_id=obs_set.id, species_id=bulbasaur.id)
+
+        response = client.get("/cards/search", params={"q": "sv3"})
+        data = response.json()
+
+        # Should match card in sv3 set (via api_card_id and set_code)
+        assert data["total"] >= 1
+
+    def test_items_include_set_name(self, client, session, sv1_set, bulbasaur):
+        """Verify set_name is correctly populated in results."""
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
+
+        response = client.get("/cards/search", params={"q": "bulbasaur"})
+        data = response.json()
+
+        assert data["items"][0]["set_name"] == "Scarlet & Violet"
+        assert data["items"][0]["set_code"] == "sv1"
+
+    def test_filters_work_with_pagination(self, client, session, sv1_set, bulbasaur):
+        """Filters + pagination work together correctly."""
+        for i in range(10):
+            _seed_card(session, f"sv1-b{i}", set_id=sv1_set.id, species_id=bulbasaur.id,
+                      card_number=f"{i:03d}/198", rarity="Common")
+
+        response = client.get("/cards/search", params={
+            "species": "bulbasaur",
+            "rarity": "Common",
+            "page_size": 3,
+            "page": 2,
+        })
+        data = response.json()
+
+        assert data["total"] == 10
+        assert data["page"] == 2
+        assert len(data["items"]) == 3
+
+
+# ---------------------------------------------------------------------------
+# GET /cards/filter-options
+# ---------------------------------------------------------------------------
+
+class TestFilterOptions:
+    def test_returns_rarities(self, client, session, sv1_set, bulbasaur):
+        _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id, rarity="Common")
+        _seed_card(session, "sv1-2", set_id=sv1_set.id, species_id=bulbasaur.id, rarity="Rare Holo")
+        _seed_card(session, "sv1-3", set_id=sv1_set.id, species_id=bulbasaur.id, rarity="Common")
+
+        response = client.get("/cards/filter-options")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "rarities" in data
+        assert "Common" in data["rarities"]
+        assert "Rare Holo" in data["rarities"]
+        # Deduplicated
+        assert len(data["rarities"]) == 2
+
+    def test_empty_database_returns_empty_rarities(self, client):
+        response = client.get("/cards/filter-options")
+
+        assert response.status_code == 200
+        assert response.json()["rarities"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -319,10 +606,10 @@ class TestCardReadSchema:
         assert len(data) == 1
         assert set(data[0].keys()) == set(CardRead.model_fields)
 
-    def test_by_dex_endpoint_returns_carread_shaped_objects(self, client, session, sv1_set, bulbasaur):
+    def test_by_dex_endpoint_returns_card_search_result_shaped_objects(self, client, session, sv1_set, bulbasaur):
         _seed_card(session, "sv1-1", set_id=sv1_set.id, species_id=bulbasaur.id)
 
         data = client.get("/cards/by-dex/1").json()
 
         assert len(data) == 1
-        assert set(data[0].keys()) == set(CardRead.model_fields)
+        assert set(data[0].keys()) == set(CardSearchResult.model_fields)

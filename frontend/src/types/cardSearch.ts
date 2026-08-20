@@ -9,3 +9,15 @@ export interface CardSearchResult {
   set_name: string | null;
   set_code: string | null;
 }
+
+export interface PaginatedCardSearchResponse {
+  items: CardSearchResult[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface CardFilterOptions {
+  rarities: string[];
+}

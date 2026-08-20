@@ -16,7 +16,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
-import type { CardRead, CollectionRead } from "../types";
+import type { CardSearchResult, CollectionRead } from "../types";
 
 export function SpeciesDetail() {
   const { speciesId } = useParams<{ speciesId: string }>();
@@ -200,29 +200,36 @@ function TrackedCardRow({
   onDecrement,
 }: {
   entry: CollectionRead;
-  card: CardRead | undefined;
+  card: CardSearchResult | undefined;
   onIncrement: () => void;
   onDecrement: () => void;
 }) {
   return (
     <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
       {card?.image_url ? (
-        <img src={card.image_url} alt="" className="w-12 h-16 object-contain rounded" loading="lazy" />
+        <img src={card.image_url} alt={card.pokemon_name ?? "Card"} className="w-12 h-16 object-contain rounded" loading="lazy" />
       ) : (
         <div className="w-12 h-16 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
           No img
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 truncate">
-          {card?.api_card_id ?? `Card #${entry.card_id}`}
+        <p className="text-sm font-medium text-gray-900 capitalize truncate">
+          {card?.pokemon_name ?? `Card #${entry.card_id}`}
         </p>
-        {card?.rarity && <p className="text-xs text-gray-500">{card.rarity}</p>}
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 text-xs text-gray-500">
+          {card?.set_name && (
+            <span className="font-medium">{card.set_name}</span>
+          )}
+          {card?.rarity && <span>{card.rarity}</span>}
+          {card?.card_number && <span>#{card.card_number}</span>}
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <button
           onClick={onDecrement}
           className="w-7 h-7 flex items-center justify-center rounded bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold text-sm"
+          aria-label="Decrease quantity"
         >
           −
         </button>
@@ -230,6 +237,7 @@ function TrackedCardRow({
         <button
           onClick={onIncrement}
           className="w-7 h-7 flex items-center justify-center rounded bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold text-sm"
+          aria-label="Increase quantity"
         >
           +
         </button>
@@ -245,7 +253,7 @@ function AvailableCardItem({
   isPending,
   onAdd,
 }: {
-  card: CardRead;
+  card: CardSearchResult;
   isTracked: boolean;
   quantity: number;
   isPending: boolean;
@@ -253,33 +261,49 @@ function AvailableCardItem({
 }) {
   return (
     <div
-      className={`border rounded-lg p-3 flex items-center gap-3 transition-colors ${
+      className={`border rounded-lg p-3 flex flex-col gap-2 transition-colors ${
         isTracked ? "bg-green-50 border-green-200" : "bg-white border-gray-200"
       }`}
     >
-      {card.image_url ? (
-        <img src={card.image_url} alt={card.api_card_id ?? "Card"} className="w-14 h-20 object-contain rounded" loading="lazy" />
-      ) : (
-        <div className="w-14 h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No img</div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 truncate">{card.api_card_id ?? `Card #${card.id}`}</p>
-        {card.card_number && <p className="text-xs text-gray-500">#{card.card_number}</p>}
-        {card.rarity && <p className="text-xs text-gray-500">{card.rarity}</p>}
+      <div className="flex items-start gap-3">
+        {card.image_url ? (
+          <img src={card.image_url} alt={card.pokemon_name ?? "Card"} className="w-14 h-20 object-contain rounded shrink-0" loading="lazy" />
+        ) : (
+          <div className="w-14 h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs shrink-0">No img</div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900 capitalize truncate">
+            {card.pokemon_name ?? card.api_card_id ?? `Card #${card.id}`}
+          </p>
+          {card.set_name && (
+            <p className="text-xs text-gray-600 font-medium truncate">{card.set_name}</p>
+          )}
+          {card.rarity && (
+            <p className="text-xs text-gray-500">{card.rarity}</p>
+          )}
+          {card.card_number && (
+            <p className="text-xs text-gray-400">#{card.card_number}</p>
+          )}
+        </div>
       </div>
-      {isTracked ? (
-        <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">
-          ×{quantity}
-        </span>
-      ) : (
-        <button
-          onClick={onAdd}
-          disabled={isPending}
-          className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200 disabled:opacity-50"
-        >
-          {isPending ? "..." : "Add"}
-        </button>
-      )}
+      <div className="flex items-center justify-between mt-auto">
+        {isTracked ? (
+          <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full">
+            ×{quantity}
+          </span>
+        ) : (
+          <button
+            onClick={onAdd}
+            disabled={isPending}
+            className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200 disabled:opacity-50"
+          >
+            {isPending ? "..." : "Add"}
+          </button>
+        )}
+        {card.set_code && (
+          <span className="text-xs font-mono text-gray-400 uppercase">{card.set_code}</span>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import { useCardSearch } from "../hooks/useCardSearch";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useCardSearch, useCardFilterOptions } from "../hooks/useCardSearch";
 import {
   useAddCardToCollection,
   useCollectionEntries,
@@ -10,17 +10,58 @@ import { ErrorState } from "../components/ErrorState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import type { CardSearchResult } from "../types";
 
+const PAGE_SIZE = 50;
+
 export function AddCards() {
+  // Filter state
   const [search, setSearch] = useState("");
-  const { data: cards, isLoading, error } = useCardSearch(search);
+  const [speciesFilter, setSpeciesFilter] = useState("");
+  const [setFilter, setSetFilter] = useState("");
+  const [rarityFilter, setRarityFilter] = useState("");
+  const [page, setPage] = useState(1);
+
+  // Debounced search values to avoid API calls on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedSpecies, setDebouncedSpecies] = useState("");
+  const [debouncedSet, setDebouncedSet] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+      setDebouncedSpecies(speciesFilter);
+      setDebouncedSet(setFilter);
+      setPage(1); // Reset to page 1 on filter change
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, speciesFilter, setFilter]);
+
+  // Rarity filter change resets page immediately (dropdown, no debounce needed)
+  const handleRarityChange = (value: string) => {
+    setRarityFilter(value);
+    setPage(1);
+  };
+
+  const searchParams = {
+    q: debouncedSearch || undefined,
+    species: debouncedSpecies || undefined,
+    set_name: debouncedSet || undefined,
+    rarity: rarityFilter || undefined,
+    page,
+    page_size: PAGE_SIZE,
+  };
+
+  const { data, isLoading, error } = useCardSearch(searchParams);
+  const { data: filterOptions } = useCardFilterOptions();
   const { data: collection } = useCollectionEntries();
 
   const addMutation = useAddCardToCollection();
   const removeMutation = useRemoveFromCollection();
 
-  const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(
-    () => new Set(),
-  );
+  const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(() => new Set());
   const removingEntryIds = useRef<Set<number>>(new Set());
 
   const ownedCardIds = new Set(
@@ -72,53 +113,122 @@ export function AddCards() {
     [removeMutation, pendingCardIds, collection],
   );
 
+  const hasAnyCriteria = !!(debouncedSearch || debouncedSpecies || debouncedSet || rarityFilter);
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setSpeciesFilter("");
+    setSetFilter("");
+    setRarityFilter("");
+    setPage(1);
+    setDebouncedSearch("");
+    setDebouncedSpecies("");
+    setDebouncedSet("");
+  };
+
+  const hasActiveFilters = !!(search || speciesFilter || setFilter || rarityFilter);
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Add Cards</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Search by Pokémon name, card number, set code, or set name.
+          Search and filter cards to add to your collection.
         </p>
       </div>
 
-      {/* Search input */}
-      <input
-        type="text"
-        placeholder="e.g. pikachu, sv1-25, 58/165, base set..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        autoFocus
-        className="w-full rounded-md border border-gray-300 px-4 py-3 text-sm shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        aria-label="Search cards"
-      />
+      {/* Search and filter controls */}
+      <div className="space-y-3">
+        {/* Main search */}
+        <input
+          type="text"
+          placeholder="Search by name, card number, set code, or set name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoFocus
+          className="w-full rounded-md border border-gray-300 px-4 py-3 text-sm shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          aria-label="Search cards"
+        />
+
+        {/* Filter row */}
+        <div className="flex flex-wrap gap-3">
+          <input
+            type="text"
+            placeholder="Pokémon species..."
+            value={speciesFilter}
+            onChange={(e) => setSpeciesFilter(e.target.value)}
+            className="flex-1 min-w-[150px] rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            aria-label="Filter by species"
+          />
+          <input
+            type="text"
+            placeholder="Set name..."
+            value={setFilter}
+            onChange={(e) => setSetFilter(e.target.value)}
+            className="flex-1 min-w-[150px] rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            aria-label="Filter by set"
+          />
+          <select
+            value={rarityFilter}
+            onChange={(e) => handleRarityChange(e.target.value)}
+            className="min-w-[140px] rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            aria-label="Filter by rarity"
+          >
+            <option value="">All rarities</option>
+            {(filterOptions?.rarities ?? []).map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          {hasActiveFilters && (
+            <button
+              onClick={handleClearFilters}
+              className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Results */}
-      {search.length < 2 && (
+      {!hasAnyCriteria && (
         <EmptyState
           icon="🔍"
-          message="Type at least 2 characters to search for cards."
+          message="Enter a search term or select filters to find cards."
         />
       )}
 
-      {search.length >= 2 && isLoading && (
+      {hasAnyCriteria && isLoading && (
         <LoadingSpinner message="Searching cards..." />
       )}
 
-      {search.length >= 2 && error && (
+      {hasAnyCriteria && error && (
         <ErrorState message="Failed to search cards." />
       )}
 
-      {search.length >= 2 && cards && cards.length === 0 && (
-        <EmptyState icon="🃏" message={`No cards found for "${search}".`} />
+      {hasAnyCriteria && data && data.total === 0 && (
+        <EmptyState icon="🃏" message="No cards match your search criteria." />
       )}
 
-      {cards && cards.length > 0 && (
+      {data && data.total > 0 && (
         <>
-          <p className="text-sm text-gray-500">
-            {cards.length} cards found
-          </p>
+          {/* Results summary and pagination info */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              {data.total} {data.total === 1 ? "card" : "cards"} found
+              {data.total_pages > 1 && (
+                <span className="ml-1">
+                  — page {data.page} of {data.total_pages}
+                </span>
+              )}
+            </p>
+          </div>
+
+          {/* Card results */}
           <div className="space-y-2">
-            {cards.map((card) => (
+            {data.items.map((card) => (
               <CardResult
                 key={card.id}
                 card={card}
@@ -129,6 +239,29 @@ export function AddCards() {
               />
             ))}
           </div>
+
+          {/* Pagination controls */}
+          {data.total_pages > 1 && (
+            <div className="flex items-center justify-center gap-4 pt-4">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={data.page <= 1}
+                className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                ← Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {data.page} of {data.total_pages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}
+                disabled={data.page >= data.total_pages}
+                className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -156,7 +289,7 @@ function CardResult({ card, isOwned, isPending, onAdd, onRemove }: CardResultPro
       {card.image_url ? (
         <img
           src={card.image_url}
-          alt={card.api_card_id ?? "Card"}
+          alt={card.pokemon_name ?? card.api_card_id ?? "Card"}
           className="w-14 h-20 object-contain rounded shrink-0"
           loading="lazy"
         />
@@ -189,8 +322,8 @@ function CardResult({ card, isOwned, isPending, onAdd, onRemove }: CardResultPro
               {card.set_code}
             </span>
           )}
-          {card.card_number && <span>#{card.card_number}</span>}
           {card.rarity && <span>{card.rarity}</span>}
+          {card.card_number && <span>#{card.card_number}</span>}
         </div>
       </div>
 

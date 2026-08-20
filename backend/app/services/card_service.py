@@ -257,3 +257,135 @@ def search_cards_full(
         }
         for row in rows
     ]
+
+
+def search_cards_paginated(
+    session: Session,
+    query: str | None = None,
+    species: str | None = None,
+    set_name: str | None = None,
+    rarity: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> tuple[list[dict], int]:
+    """Paginated card search with optional filters.
+
+    Filters are combined with AND logic. At least one of ``query`` or a filter
+    must be provided (enforced at the router level).
+
+    Args:
+        session:   An open SQLModel Session.
+        query:     Free-text search across name, card number, set code, set name.
+        species:   Filter by Pokémon species name (substring match).
+        set_name:  Filter by set name or set code (substring match).
+        rarity:    Filter by exact rarity value.
+        page:      Page number (1-indexed).
+        page_size: Number of results per page.
+
+    Returns:
+        A tuple of (results list of dicts, total matching count).
+    """
+    from sqlalchemy import case as sa_case, func, literal
+
+    base = (
+        select(
+            Card.id,
+            Card.api_card_id,
+            Card.card_number,
+            Card.rarity,
+            Card.image_url,
+            PokemonSpecies.name.label("pokemon_name"),  # type: ignore[attr-defined]
+            PokemonSpecies.national_dex_number,
+            Set.name.label("set_name"),  # type: ignore[attr-defined]
+            Set.api_set_id.label("set_code"),  # type: ignore[attr-defined]
+        )
+        .join(PokemonSpecies, Card.pokemon_species_id == PokemonSpecies.id, isouter=True)
+        .join(Set, Card.set_id == Set.id, isouter=True)
+    )
+
+    # Build WHERE conditions (AND logic)
+    conditions = []
+
+    if query:
+        term = f"%{query}%"
+        conditions.append(
+            (PokemonSpecies.name.ilike(term))  # type: ignore[union-attr]
+            | (Card.api_card_id.ilike(term))  # type: ignore[union-attr]
+            | (Card.card_number.ilike(term))  # type: ignore[union-attr]
+            | (Set.api_set_id.ilike(term))  # type: ignore[union-attr]
+            | (Set.name.ilike(term))  # type: ignore[union-attr]
+        )
+
+    if species:
+        species_term = f"%{species}%"
+        conditions.append(PokemonSpecies.name.ilike(species_term))  # type: ignore[union-attr]
+
+    if set_name:
+        set_term = f"%{set_name}%"
+        conditions.append(
+            (Set.name.ilike(set_term))  # type: ignore[union-attr]
+            | (Set.api_set_id.ilike(set_term))  # type: ignore[union-attr]
+        )
+
+    if rarity:
+        conditions.append(Card.rarity == rarity)
+
+    for condition in conditions:
+        base = base.where(condition)
+
+    # Count total matching rows
+    count_stmt = select(func.count()).select_from(base.subquery())
+    total = session.exec(count_stmt).one()  # type: ignore[call-overload]
+
+    # Add ordering
+    if query:
+        term = f"%{query}%"
+        priority = sa_case(
+            (Card.card_number.ilike(term), literal(1)),  # type: ignore[union-attr]
+            (Card.api_card_id.ilike(term), literal(1)),  # type: ignore[union-attr]
+            (Set.api_set_id.ilike(term), literal(2)),  # type: ignore[union-attr]
+            else_=literal(3),
+        )
+        base = base.order_by(priority, PokemonSpecies.name, Card.card_number)  # type: ignore[arg-type]
+    else:
+        base = base.order_by(PokemonSpecies.name, Set.name, Card.card_number)  # type: ignore[arg-type]
+
+    # Pagination
+    offset = (page - 1) * page_size
+    base = base.offset(offset).limit(page_size)
+
+    rows = session.exec(base).all()  # type: ignore[call-overload]
+
+    items = [
+        {
+            "id": row.id,
+            "api_card_id": row.api_card_id,
+            "card_number": row.card_number,
+            "rarity": row.rarity,
+            "image_url": row.image_url,
+            "pokemon_name": row.pokemon_name,
+            "national_dex_number": row.national_dex_number,
+            "set_name": row.set_name,
+            "set_code": row.set_code,
+        }
+        for row in rows
+    ]
+
+    return items, total
+
+
+def get_filter_options(session: Session) -> dict:
+    """Return available filter values for the card search UI.
+
+    Currently returns distinct non-null rarity values sorted alphabetically.
+    """
+    from sqlalchemy import func  # noqa: F811
+
+    stmt = (
+        select(Card.rarity)
+        .where(Card.rarity.is_not(None))  # type: ignore[union-attr]
+        .distinct()
+        .order_by(Card.rarity)
+    )
+    rarities = list(session.exec(stmt).all())
+    return {"rarities": rarities}
