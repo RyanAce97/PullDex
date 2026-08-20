@@ -8,6 +8,8 @@ Set and PokémonSpecies records must already exist in the database before
 running this importer — run set_importer and species_importer first.
 """
 
+import re
+
 from sqlmodel import Session, select
 
 from app.database import get_session_context
@@ -15,6 +17,53 @@ from app.models.card import Card
 from app.models.pokemon_species import PokemonSpecies
 from app.models.set import Set
 from app.services.api.pokemon_tcg_client import PokemonTCGClient
+
+
+# ---------------------------------------------------------------------------
+# TCG card name suffixes to strip when matching against species names.
+# Order matters: longer suffixes must come before shorter ones to avoid
+# partial matches (e.g., "VSTAR" before "V").
+# ---------------------------------------------------------------------------
+_TCG_SUFFIXES = [
+    " VSTAR",
+    " VMAX",
+    " BREAK",
+    " GX",
+    " EX",
+    " ex",
+    " V",
+    "-EX",
+    "-GX",
+    " δ",
+    " ◇",
+    " FB",
+    " GL",
+    " G",
+    " C",
+    " LV.X",
+    " Prism Star",
+    " Star",
+    " ☆",
+]
+
+# Known card names that should NOT be mapped to any species despite having
+# supertype=Pokémon in the API. These are typically Fossil/Item cards that
+# function as Pokémon during gameplay.
+_EXCLUDED_CARD_NAMES: set[str] = {
+    "buried fossil",
+    "mysterious fossil",
+    "root fossil",
+    "claw fossil",
+}
+
+# Special mappings for Pokémon with form names in the TCG that differ from
+# the species name in the PokéAPI. Maps normalized card name → species name.
+_FORM_MAPPINGS: dict[str, str] = {
+    "teal mask ogerpon": "ogerpon",
+    "hearthflame mask ogerpon": "ogerpon",
+    "wellspring mask ogerpon": "ogerpon",
+    "cornerstone mask ogerpon": "ogerpon",
+}
 
 
 def _resolve_set_id(session: Session, api_set_id: str | None) -> int | None:
@@ -37,6 +86,65 @@ def _resolve_species_id(session: Session, national_dex_number: int | None) -> in
         )
     ).first()
     return result.id if result else None
+
+
+def normalize_card_name(card_name: str) -> str:
+    """Normalize a TCG card name to a species-matching form.
+
+    Strips known TCG suffixes (ex, EX, V, VMAX, VSTAR, GX, etc.),
+    converts to lowercase, and replaces spaces with hyphens to match
+    the PokéAPI species naming convention.
+
+    Examples:
+        "Iron Boulder ex"  → "iron-boulder"
+        "Raging Bolt ex"   → "raging-bolt"
+        "Pikachu VMAX"     → "pikachu"
+        "Okidogi"          → "okidogi"
+        "Teal Mask Ogerpon ex" → "teal-mask-ogerpon"
+    """
+    name = card_name.strip()
+
+    # Strip TCG suffixes (case-sensitive matching)
+    for suffix in _TCG_SUFFIXES:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)].strip()
+            break
+
+    # Lowercase and replace spaces with hyphens
+    return name.lower().replace(" ", "-")
+
+
+def _resolve_species_by_name(session: Session, card_name: str) -> int | None:
+    """Attempt to resolve a species ID by matching the card name.
+
+    This is the fallback used when nationalPokedexNumbers is not available.
+    Uses controlled name matching with suffix stripping and form handling.
+
+    Returns the species ID if a confident match is found, else None.
+    """
+    normalized = normalize_card_name(card_name)
+
+    # Check exclusions
+    if normalized.replace("-", " ") in _EXCLUDED_CARD_NAMES:
+        return None
+
+    # Check form mappings first
+    normalized_with_spaces = normalized.replace("-", " ")
+    if normalized_with_spaces in _FORM_MAPPINGS:
+        target_name = _FORM_MAPPINGS[normalized_with_spaces]
+        result = session.exec(
+            select(PokemonSpecies).where(PokemonSpecies.name == target_name)
+        ).first()
+        return result.id if result else None
+
+    # Direct exact match against species name
+    result = session.exec(
+        select(PokemonSpecies).where(PokemonSpecies.name == normalized)
+    ).first()
+    if result:
+        return result.id
+
+    return None
 
 
 def _pick_image_url(images: dict | None) -> str | None:
@@ -64,8 +172,12 @@ def upsert_card(session: Session, data: dict) -> Card:
     identifier.  Set and species links are resolved by looking up the
     corresponding local rows.
 
-    Trainer and energy cards typically have no ``nationalPokedexNumbers``
-    entry; ``pokemon_species_id`` is left as ``None`` for those cards.
+    Species resolution priority:
+    1. nationalPokedexNumbers (dex number lookup — authoritative)
+    2. Name-based fallback for Pokémon cards without dex numbers
+
+    Trainer and energy cards (supertype != "Pokémon") are never matched
+    by name and always have ``pokemon_species_id = None``.
 
     Args:
         session: An open SQLModel Session.
@@ -80,9 +192,16 @@ def upsert_card(session: Session, data: dict) -> Card:
     api_set_id: str | None = (data.get("set") or {}).get("id")
     set_id = _resolve_set_id(session, api_set_id)
 
+    # Species resolution: dex number first, then name fallback
     dex_numbers: list[int] = data.get("nationalPokedexNumbers") or []
     national_dex_number: int | None = dex_numbers[0] if dex_numbers else None
     species_id = _resolve_species_id(session, national_dex_number)
+
+    # Fallback: name-based matching for Pokémon cards without dex numbers
+    if species_id is None and data.get("supertype") == "Pokémon":
+        card_name = data.get("name", "")
+        if card_name:
+            species_id = _resolve_species_by_name(session, card_name)
 
     card_number: str | None = data.get("number")
     rarity: str | None = data.get("rarity")
