@@ -108,6 +108,8 @@ def health():
 
 if _STATIC_DIR:
     # Serve bundled frontend assets (JS, CSS, images).
+    # These have content-hashed filenames from Vite (e.g., index-DlEttoej.js)
+    # so they can be cached indefinitely — a new build generates new filenames.
     app.mount(
         "/assets",
         StaticFiles(directory=_STATIC_DIR / "assets"),
@@ -116,8 +118,16 @@ if _STATIC_DIR:
 
     @app.get("/", include_in_schema=False)
     async def serve_index():
-        """Serve the React SPA index.html at the root."""
-        return FileResponse(_STATIC_DIR / "index.html")
+        """Serve the React SPA index.html at the root.
+
+        Served with Cache-Control: no-cache so that after a PullDex update,
+        Electron's Chromium always fetches the latest index.html which
+        references the new hashed asset filenames.
+        """
+        return FileResponse(
+            _STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 
     @app.get("/{path:path}", include_in_schema=False)
     async def serve_spa(path: str):
@@ -129,8 +139,11 @@ if _STATIC_DIR:
         file_path = _STATIC_DIR / path
         if file_path.is_file():
             return FileResponse(file_path)
-        # Otherwise, return index.html for SPA routing.
-        return FileResponse(_STATIC_DIR / "index.html")
+        # Otherwise, return index.html for SPA routing (also no-cache).
+        return FileResponse(
+            _STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 else:
     # Development mode — simple root/welcome endpoint.
     @app.get("/", tags=["General"], summary="Root")
