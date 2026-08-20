@@ -21,4 +21,12 @@ export const queryKeys = {
   recommendations: (limit: number) => ["recommendations", limit] as const,
   recommendationSpecies: (setId: number) =>
     ["recommendations", setId, "species"] as const,
+
+  // Profiles
+  profiles: ["profiles"] as const,
+  activeProfile: ["profiles", "active"] as const,
+
+  // Binder
+  binder: ["binder"] as const,
+  binderCards: (params: Record<string, unknown>) => ["binder", "cards", params] as const,
 } as const;

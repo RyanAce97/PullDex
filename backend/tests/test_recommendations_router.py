@@ -88,7 +88,10 @@ def _card(
 
 
 def _collect(session: Session, card: Card) -> Collection:
-    e = Collection(card_id=card.id)
+    from sqlmodel import select as _select
+    from app.models.profile import Profile
+    profile = session.exec(_select(Profile).where(Profile.is_active == True)).first()  # noqa: E712
+    e = Collection(card_id=card.id, profile_id=profile.id)
     session.add(e)
     session.commit()
     session.refresh(e)

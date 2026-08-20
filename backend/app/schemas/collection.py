@@ -12,6 +12,7 @@ class CollectionRead(BaseModel):
     pokemon_species_id: int | None
     card_id: int | None
     quantity: int
+    is_binder_card: bool = False
 
 
 class CollectionSpeciesCreate(BaseModel):

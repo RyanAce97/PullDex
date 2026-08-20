@@ -27,6 +27,18 @@ export async function removeSpeciesFromCollection(speciesId: number): Promise<vo
   return apiClient.delete(`/collection/species/${speciesId}`);
 }
 
+export async function removeSpeciesCascade(speciesId: number): Promise<{ removed_species: boolean; removed_cards: number }> {
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL || window.location.origin}/collection/species/${speciesId}/cascade`,
+    { method: "DELETE", headers: { Accept: "application/json" } },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail || "Failed to remove species");
+  }
+  return response.json();
+}
+
 // ---------------------------------------------------------------------------
 // Card-level
 // ---------------------------------------------------------------------------

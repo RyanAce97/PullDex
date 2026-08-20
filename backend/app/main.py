@@ -16,6 +16,9 @@ from app.routers import progress as progress_router
 from app.routers import recommendations as recommendations_router
 from app.routers import sets as sets_router
 from app.routers import species as species_router
+from app.routers import profiles as profiles_router
+from app.routers import binder as binder_router
+from app.routers import data as data_router
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +87,9 @@ app.include_router(progress_router.router)
 app.include_router(recommendations_router.router)
 app.include_router(sets_router.router)
 app.include_router(species_router.router)
+app.include_router(profiles_router.router)
+app.include_router(binder_router.router)
+app.include_router(data_router.router)
 
 
 # ---------------------------------------------------------------------------

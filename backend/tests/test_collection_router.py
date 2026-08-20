@@ -283,7 +283,7 @@ class TestOwnershipIntegration:
 
 class TestCollectionReadSchema:
     def test_schema_fields(self):
-        expected = {"id", "pokemon_species_id", "card_id", "quantity"}
+        expected = {"id", "pokemon_species_id", "card_id", "quantity", "is_binder_card"}
         assert set(CollectionRead.model_fields) == expected
 
     def test_schema_does_not_expose_relationships(self):

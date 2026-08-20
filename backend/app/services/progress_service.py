@@ -3,6 +3,8 @@
 All ownership data is derived from existing tables — no new fields needed.
 A species is "owned" if the user has at least one Collection entry for any
 Card that references that species.
+
+All queries are scoped to the active profile.
 """
 
 from sqlmodel import Session, func, select
@@ -10,6 +12,7 @@ from sqlmodel import Session, func, select
 from app.models.card import Card
 from app.models.collection import Collection
 from app.models.pokemon_species import PokemonSpecies
+from app.services.profile_service import get_active_profile_id
 
 
 def get_total_species_count(session: Session) -> int:
@@ -19,7 +22,7 @@ def get_total_species_count(session: Session) -> int:
 
 
 def get_owned_species_ids(session: Session) -> set[int]:
-    """Return the set of PokemonSpecies IDs the user owns.
+    """Return the set of PokemonSpecies IDs the active profile owns.
 
     A species is owned if EITHER:
       - A direct species-level Collection entry exists (pokemon_species_id set), OR
@@ -27,18 +30,26 @@ def get_owned_species_ids(session: Session) -> set[int]:
 
     Duplicate entries do not affect the result — each species appears at most once.
     """
+    profile_id = get_active_profile_id(session)
+
     # Direct species-level entries
     direct_stmt = (
         select(Collection.pokemon_species_id)
-        .where(Collection.pokemon_species_id.is_not(None))  # type: ignore[union-attr]
+        .where(
+            Collection.profile_id == profile_id,
+            Collection.pokemon_species_id.is_not(None),  # type: ignore[union-attr]
+        )
     )
     direct_ids = set(session.exec(direct_stmt).all())
 
-    # Card-level entries (existing logic)
+    # Card-level entries
     card_stmt = (
         select(Card.pokemon_species_id)
         .join(Collection, Collection.card_id == Card.id)
-        .where(Card.pokemon_species_id.is_not(None))  # type: ignore[union-attr]
+        .where(
+            Collection.profile_id == profile_id,
+            Card.pokemon_species_id.is_not(None),  # type: ignore[union-attr]
+        )
         .distinct()
     )
     card_ids = set(session.exec(card_stmt).all())
@@ -47,12 +58,12 @@ def get_owned_species_ids(session: Session) -> set[int]:
 
 
 def get_owned_species_count(session: Session) -> int:
-    """Return the number of distinct species the user owns."""
+    """Return the number of distinct species the active profile owns."""
     return len(get_owned_species_ids(session))
 
 
 def get_progress(session: Session) -> dict:
-    """Return a summary dict of Living Dex progress.
+    """Return a summary dict of Living Dex progress for the active profile.
 
     Returns:
         A dict with keys: total_species, owned_species, missing_species,
@@ -76,7 +87,7 @@ def get_missing_species(
     limit: int = 250,
     offset: int = 0,
 ) -> list[PokemonSpecies]:
-    """Return the list of Pokémon species the user does NOT own.
+    """Return the list of Pokémon species the active profile does NOT own.
 
     Args:
         session: An open SQLModel Session.

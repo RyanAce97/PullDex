@@ -58,7 +58,10 @@ def _card(session, api_card_id, tcg_set, species):
 
 
 def _collect(session, card):
-    session.add(Collection(card_id=card.id))
+    from sqlmodel import select as _select
+    from app.models.profile import Profile
+    profile = session.exec(_select(Profile).where(Profile.is_active == True)).first()  # noqa: E712
+    session.add(Collection(card_id=card.id, profile_id=profile.id))
     session.commit()
 
 

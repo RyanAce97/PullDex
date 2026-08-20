@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useSpeciesSummary } from "../hooks/useSpeciesSummary";
 import {
   useAddSpeciesToCollection,
-  useRemoveSpeciesFromCollection,
+  useRemoveSpeciesCascade,
 } from "../hooks/useCollection";
+import { getCardEntriesForSpecies } from "../api/collection";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -17,11 +18,17 @@ export function Collection() {
   const { data, isLoading, error } = useSpeciesSummary();
   const navigate = useNavigate();
   const addMutation = useAddSpeciesToCollection();
-  const removeMutation = useRemoveSpeciesFromCollection();
+  const removeCascade = useRemoveSpeciesCascade();
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<OwnershipFilter>("all");
   const [pendingIds, setPendingIds] = useState<Set<number>>(() => new Set());
+
+  // Cascade removal confirmation state
+  const [confirmRemoval, setConfirmRemoval] = useState<{
+    species: SpeciesSummaryRead;
+    cardCount: number;
+  } | null>(null);
 
   const progress = useMemo(() => {
     if (!data) return null;
@@ -54,23 +61,59 @@ export function Collection() {
     return result;
   }, [data, filter, search]);
 
-  function handleToggle(species: SpeciesSummaryRead) {
+  async function handleRemove(species: SpeciesSummaryRead) {
     if (pendingIds.has(species.species_id)) return;
 
+    // Check if there are card entries for this species
+    try {
+      const cardEntries = await getCardEntriesForSpecies(species.species_id);
+      if (cardEntries.length > 0) {
+        // Show confirmation dialog
+        setConfirmRemoval({ species, cardCount: cardEntries.length });
+        return;
+      }
+    } catch {
+      // If we can't check, just try the cascade removal anyway
+    }
+
+    // No card entries — simple removal
     setPendingIds((prev) => new Set(prev).add(species.species_id));
+    removeCascade.mutate(species.species_id, {
+      onSettled: () => {
+        setPendingIds((prev) => { const n = new Set(prev); n.delete(species.species_id); return n; });
+      },
+    });
+  }
 
-    const onSettled = () => {
-      setPendingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(species.species_id);
-        return next;
-      });
-    };
+  function handleConfirmCascadeRemoval() {
+    if (!confirmRemoval) return;
+    const speciesId = confirmRemoval.species.species_id;
 
+    setPendingIds((prev) => new Set(prev).add(speciesId));
+    setConfirmRemoval(null);
+
+    removeCascade.mutate(speciesId, {
+      onSettled: () => {
+        setPendingIds((prev) => { const n = new Set(prev); n.delete(speciesId); return n; });
+      },
+    });
+  }
+
+  function handleAdd(species: SpeciesSummaryRead) {
+    if (pendingIds.has(species.species_id)) return;
+    setPendingIds((prev) => new Set(prev).add(species.species_id));
+    addMutation.mutate(species.species_id, {
+      onSettled: () => {
+        setPendingIds((prev) => { const n = new Set(prev); n.delete(species.species_id); return n; });
+      },
+    });
+  }
+
+  function handleToggle(species: SpeciesSummaryRead) {
     if (species.owned) {
-      removeMutation.mutate(species.species_id, { onSettled });
+      handleRemove(species);
     } else {
-      addMutation.mutate(species.species_id, { onSettled });
+      handleAdd(species);
     }
   }
 
@@ -134,6 +177,42 @@ export function Collection() {
             ))}
           </div>
         </>
+      )}
+
+      {/* Cascade removal confirmation dialog */}
+      {confirmRemoval && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmRemoval(null); }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full mx-4 p-6 space-y-4">
+            <h3 className="text-lg font-bold text-gray-900">
+              Remove {confirmRemoval.species.name}?
+            </h3>
+            <p className="text-sm text-gray-600">
+              This will remove <span className="capitalize font-medium">{confirmRemoval.species.name}</span> and
+              all <strong>{confirmRemoval.cardCount}</strong> card {confirmRemoval.cardCount === 1 ? "entry" : "entries"} associated
+              with it from your collection.
+            </p>
+            <p className="text-xs text-red-600">
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                onClick={() => setConfirmRemoval(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmCascadeRemoval}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

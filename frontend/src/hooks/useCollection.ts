@@ -4,6 +4,7 @@ import {
   addSpeciesToCollection,
   getCollection,
   removeFromCollection,
+  removeSpeciesCascade,
   removeSpeciesFromCollection,
   updateCardQuantity,
 } from "../api/collection";
@@ -58,6 +59,7 @@ export function useAddSpeciesToCollection() {
           pokemon_species_id: speciesId,
           card_id: null,
           quantity: 1,
+          is_binder_card: false,
         };
         queryClient.setQueryData<CollectionRead[]>(queryKeys.collection, [...previous, optimistic]);
       }
@@ -154,6 +156,20 @@ export function useRemoveFromCollection() {
       }
     },
 
+    onSettled: invalidate,
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// Cascade removal (species + all its card entries)
+// ---------------------------------------------------------------------------
+
+export function useRemoveSpeciesCascade() {
+  const invalidate = useInvalidateCollectionRelated();
+
+  return useMutation({
+    mutationFn: (speciesId: number) => removeSpeciesCascade(speciesId),
     onSettled: invalidate,
   });
 }

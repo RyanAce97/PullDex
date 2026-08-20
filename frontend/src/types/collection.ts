@@ -3,6 +3,7 @@ export interface CollectionRead {
   pokemon_species_id: number | null;
   card_id: number | null;
   quantity: number;
+  is_binder_card: boolean;
 }
 
 export interface CollectionSpeciesCreate {

@@ -76,7 +76,10 @@ def _card(session: Session, api_card_id: str, tcg_set: Set, species: PokemonSpec
 
 
 def _collect(session: Session, card: Card) -> None:
-    session.add(Collection(card_id=card.id))
+    from sqlmodel import select as _select
+    from app.models.profile import Profile
+    profile = session.exec(_select(Profile).where(Profile.is_active == True)).first()  # noqa: E712
+    session.add(Collection(card_id=card.id, profile_id=profile.id))
     session.commit()
 
 

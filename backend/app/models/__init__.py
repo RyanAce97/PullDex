@@ -12,11 +12,13 @@ Add new models to the imports below as they are created.
 from app.models.pokemon_species import PokemonSpecies  # noqa: F401
 from app.models.set import Set  # noqa: F401
 from app.models.card import Card  # noqa: F401
+from app.models.profile import Profile  # noqa: F401
 from app.models.collection import Collection  # noqa: F401
 
 __all__ = [
     "PokemonSpecies",
     "Set",
     "Card",
+    "Profile",
     "Collection",
 ]

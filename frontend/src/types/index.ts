@@ -6,3 +6,6 @@ export type { RecommendationResponse, SetRecommendation } from "./recommendation
 export type { SetSummaryRead } from "./setSummary";
 export type { PokemonSpeciesRead } from "./species";
 export type { SpeciesSummaryRead } from "./speciesSummary";
+export type { ProfileRead, ProfileCreate, ProfileRename, ProfileSettingsUpdate } from "./profile";
+export type { BinderCardInfo, BinderSlot, BinderPageResponse } from "./binder";
+export type { ExportResponse, ImportRequest, ImportResponse, BackupResponse, RestoreRequest, RestoreResponse } from "./data";

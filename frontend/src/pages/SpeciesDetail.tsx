@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCardsByDex } from "../api/cards";
 import { getCardEntriesForSpecies } from "../api/collection";
+import { setBinderCard } from "../api/binder";
 import { useSpeciesQuery } from "../hooks/useSpeciesQuery";
 import { useMissingSpeciesQuery } from "../hooks/useMissingSpeciesQuery";
 import {
@@ -49,6 +50,8 @@ export function SpeciesDetail() {
   const error = speciesQuery.error || missingQuery.error || cardsQuery.error || entriesQuery.error;
 
   const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(() => new Set());
+  const [settingBinderCardId, setSettingBinderCardId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
 
   const owned = species && missingQuery.data ? !missingQuery.data.has(species.id) : false;
   const cards = cardsQuery.data ?? [];
@@ -92,6 +95,20 @@ export function SpeciesDetail() {
       }
     },
     [updateQuantity, removeEntry],
+  );
+
+  const handleSetBinderCard = useCallback(
+    async (entryId: number) => {
+      setSettingBinderCardId(entryId);
+      try {
+        await setBinderCard(entryId);
+        queryClient.invalidateQueries({ queryKey: ["collection", "species", numericId, "cards"] });
+        queryClient.invalidateQueries({ queryKey: ["binder"] });
+      } finally {
+        setSettingBinderCardId(null);
+      }
+    },
+    [queryClient, numericId],
   );
 
   if (isLoading) return <LoadingSpinner message="Loading species details..." />;
@@ -160,6 +177,8 @@ export function SpeciesDetail() {
                   card={card}
                   onIncrement={() => handleIncrement(entry)}
                   onDecrement={() => handleDecrement(entry)}
+                  onSetBinderCard={() => handleSetBinderCard(entry.id)}
+                  isSettingBinder={settingBinderCardId === entry.id}
                 />
               );
             })}
@@ -198,14 +217,18 @@ function TrackedCardRow({
   card,
   onIncrement,
   onDecrement,
+  onSetBinderCard,
+  isSettingBinder,
 }: {
   entry: CollectionRead;
   card: CardSearchResult | undefined;
   onIncrement: () => void;
   onDecrement: () => void;
+  onSetBinderCard: () => void;
+  isSettingBinder: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg p-3">
+    <div className={`flex items-center gap-3 rounded-lg p-3 ${entry.is_binder_card ? "bg-indigo-50 border border-indigo-200" : "bg-green-50 border border-green-200"}`}>
       {card?.image_url ? (
         <img src={card.image_url} alt={card.pokemon_name ?? "Card"} className="w-12 h-16 object-contain rounded" loading="lazy" />
       ) : (
@@ -214,18 +237,33 @@ function TrackedCardRow({
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 capitalize truncate">
-          {card?.pokemon_name ?? `Card #${entry.card_id}`}
-        </p>
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 text-xs text-gray-500">
-          {card?.set_name && (
-            <span className="font-medium">{card.set_name}</span>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-gray-900 capitalize truncate">
+            {card?.pokemon_name ?? `Card #${entry.card_id}`}
+          </p>
+          {entry.is_binder_card && (
+            <span className="text-xs font-semibold text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">
+              ★ Binder
+            </span>
           )}
+        </div>
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5 text-xs text-gray-500">
+          {card?.set_name && <span className="font-medium">{card.set_name}</span>}
           {card?.rarity && <span>{card.rarity}</span>}
           {card?.card_number && <span>#{card.card_number}</span>}
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {!entry.is_binder_card && (
+          <button
+            onClick={onSetBinderCard}
+            disabled={isSettingBinder}
+            className="text-[10px] font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50 whitespace-nowrap"
+            title="Show in Binder"
+          >
+            ★ Binder
+          </button>
+        )}
         <button
           onClick={onDecrement}
           className="w-7 h-7 flex items-center justify-center rounded bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold text-sm"

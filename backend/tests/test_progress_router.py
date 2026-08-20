@@ -69,7 +69,10 @@ def _seed_card(session: Session, api_card_id: str, species: PokemonSpecies) -> C
 
 
 def _add_to_collection(session: Session, card: Card) -> Collection:
-    entry = Collection(card_id=card.id)
+    from sqlmodel import select as _select
+    from app.models.profile import Profile
+    profile = session.exec(_select(Profile).where(Profile.is_active == True)).first()  # noqa: E712
+    entry = Collection(card_id=card.id, profile_id=profile.id)
     session.add(entry)
     session.commit()
     session.refresh(entry)

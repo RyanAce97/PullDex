@@ -101,6 +101,22 @@ def remove_species(species_id: int, session=Depends(get_session)):
     return None
 
 
+@router.delete("/species/{species_id}/cascade", status_code=200, summary="Remove species and all its cards")
+def remove_species_with_cards(species_id: int, session=Depends(get_session)):
+    """Remove a species from the collection along with all its card entries.
+
+    This is the endpoint used by the Collection page "Remove" action when
+    a species has associated card-level entries.
+
+    Returns a summary of what was removed.
+    """
+    from app.services.collection_service import remove_species_cascade
+    result = remove_species_cascade(session, species_id)
+    if not result["removed_species"] and result["removed_cards"] == 0:
+        raise HTTPException(status_code=404, detail=f"No collection entries for species {species_id}.")
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Card-level (detailed tracking)
 # ---------------------------------------------------------------------------
