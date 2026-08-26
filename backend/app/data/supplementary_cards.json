@@ -715,14 +715,6 @@
       "national_dex_number": 65
     },
     {
-      "api_card_id": "mep-Museum",
-      "set_api_id": "mep",
-      "card_number": "Museum",
-      "rarity": "Promo",
-      "image_url": null,
-      "national_dex_number": 25
-    },
-    {
       "api_card_id": "svp-175",
       "set_api_id": "svp",
       "card_number": "175",
@@ -921,14 +913,6 @@
       "rarity": "Promo",
       "image_url": "https://assets.tcgdex.net/en/sv/svp/225/high.webp",
       "national_dex_number": 25
-    },
-    {
-      "api_card_id": "svp-500",
-      "set_api_id": "svp",
-      "card_number": "500",
-      "rarity": "Promo",
-      "image_url": "https://assets.tcgdex.net/en/sv/svp/500/high.webp",
-      "national_dex_number": 1024
     }
   ]
 }

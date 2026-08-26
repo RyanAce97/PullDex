@@ -506,6 +506,27 @@ def _repair_card_back_images() -> None:
     else:
         print("Card-back image repair: all images already correct.")
 
+    # Step 5b: Remove known oversized/jumbo cards that should not be in the
+    # standard card catalogue. Only deletes if no collection entries reference them.
+    _OVERSIZED_CARDS = ["mep-Museum", "svp-500"]
+    removed = 0
+    for api_card_id in _OVERSIZED_CARDS:
+        cur.execute("SELECT id FROM cards WHERE api_card_id = ?", (api_card_id,))
+        row = cur.fetchone()
+        if row:
+            card_internal_id = row[0]
+            cur.execute(
+                "SELECT COUNT(*) FROM collection WHERE card_id = ?",
+                (card_internal_id,),
+            )
+            if cur.fetchone()[0] == 0:
+                cur.execute("DELETE FROM cards WHERE id = ?", (card_internal_id,))
+                removed += cur.rowcount
+
+    if removed > 0:
+        conn.commit()
+        print(f"Oversized card cleanup: removed {removed} non-standard cards.")
+
     conn.close()
 
 

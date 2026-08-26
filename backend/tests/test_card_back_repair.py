@@ -143,7 +143,7 @@ class TestRepairCardBackImages:
         conn.close()
 
     def test_sets_mep_museum_to_null(self, tmp_path):
-        """mep-Museum image_url is set to NULL."""
+        """mep-Museum is removed (oversized card) when no collection references exist."""
         db_path = _create_test_db(tmp_path)
 
         with patch("app.database.settings") as mock_settings:
@@ -153,8 +153,8 @@ class TestRepairCardBackImages:
 
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
-        cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-Museum'")
-        assert cur.fetchone()[0] is None
+        cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id = 'mep-Museum'")
+        assert cur.fetchone()[0] == 0  # Deleted as oversized
         conn.close()
 
     def test_idempotent(self, tmp_path):
@@ -171,8 +171,8 @@ class TestRepairCardBackImages:
         cur = conn.cursor()
         cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mcd18-1'")
         assert cur.fetchone()[0] == "https://images.scrydex.com/pokemon/mcd18-1/large"
-        cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-Museum'")
-        assert cur.fetchone()[0] is None
+        cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id = 'mep-Museum'")
+        assert cur.fetchone()[0] == 0  # Deleted as oversized
         conn.close()
 
     def test_preserves_correct_images(self, tmp_path):
@@ -295,6 +295,92 @@ class TestRepairCardBackImages:
         cur = conn.cursor()
         cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-Museum'")
         row = cur.fetchone()
-        # Should be NULL, not the card-back URL
-        assert row[0] is None or row[0] != "https://images.scrydex.com/pokemon/mep-Museum/large"
+        # Should be deleted (no collection refs) or NULL
+        assert row is None or row[0] is None or row[0] != "https://images.scrydex.com/pokemon/mep-Museum/large"
+        conn.close()
+
+    def test_removes_oversized_mep_museum(self, tmp_path):
+        """mep-Museum is removed if no collection references exist."""
+        db_path = _create_test_db(tmp_path)
+
+        with patch("app.database.settings") as mock_settings:
+            mock_settings.database_url = f"sqlite:///{db_path}"
+            from app.database import _repair_card_back_images
+            _repair_card_back_images()
+
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id = 'mep-Museum'")
+        assert cur.fetchone()[0] == 0
+        conn.close()
+
+    def test_removes_oversized_svp_500(self, tmp_path):
+        """svp-500 is removed if no collection references exist."""
+        db_path = _create_test_db(tmp_path)
+
+        # Add svp-500 to the test DB
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO cards (api_card_id, set_id, card_number, image_url) VALUES ('svp-500', 1, '500', 'https://example.com/img.png')"
+        )
+        conn.commit()
+        conn.close()
+
+        with patch("app.database.settings") as mock_settings:
+            mock_settings.database_url = f"sqlite:///{db_path}"
+            from app.database import _repair_card_back_images
+            _repair_card_back_images()
+
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id = 'svp-500'")
+        assert cur.fetchone()[0] == 0
+        conn.close()
+
+    def test_preserves_oversized_card_with_collection_reference(self, tmp_path):
+        """Oversized cards with collection references are NOT deleted."""
+        db_path = _create_test_db(tmp_path)
+
+        # Add a collection entry referencing mep-Museum
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM cards WHERE api_card_id = 'mep-Museum'")
+        museum_id = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO collection (card_id, quantity, profile_id, is_binder_card) VALUES (?, 1, 1, 0)",
+            (museum_id,),
+        )
+        conn.commit()
+        conn.close()
+
+        with patch("app.database.settings") as mock_settings:
+            mock_settings.database_url = f"sqlite:///{db_path}"
+            from app.database import _repair_card_back_images
+            _repair_card_back_images()
+
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        # Card should still exist because it has a collection reference
+        cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id = 'mep-Museum'")
+        assert cur.fetchone()[0] == 1
+        # Collection entry should be unchanged
+        cur.execute("SELECT quantity FROM collection WHERE card_id = ?", (museum_id,))
+        assert cur.fetchone()[0] == 1
+        conn.close()
+
+    def test_oversized_cleanup_idempotent(self, tmp_path):
+        """Running the cleanup twice doesn't cause errors."""
+        db_path = _create_test_db(tmp_path)
+
+        with patch("app.database.settings") as mock_settings:
+            mock_settings.database_url = f"sqlite:///{db_path}"
+            from app.database import _repair_card_back_images
+            _repair_card_back_images()
+            _repair_card_back_images()
+
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id = 'mep-Museum'")
+        assert cur.fetchone()[0] == 0
         conn.close()

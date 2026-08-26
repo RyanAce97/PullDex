@@ -148,24 +148,24 @@ class TestSupplementaryCardsJSON:
         assert data["version"] == 1
 
     def test_json_contains_115_cards(self):
-        """The data file contains exactly 115 cards."""
+        """The data file contains exactly 113 cards."""
         with open(_get_data_file_path()) as f:
             data = json.load(f)
-        assert len(data["cards"]) == 115
+        assert len(data["cards"]) == 113
 
     def test_json_contains_89_mep_cards(self):
-        """The data file contains exactly 89 MEP cards."""
+        """The data file contains exactly 88 MEP cards."""
         with open(_get_data_file_path()) as f:
             data = json.load(f)
         mep_cards = [c for c in data["cards"] if c["set_api_id"] == "mep"]
-        assert len(mep_cards) == 89
+        assert len(mep_cards) == 88
 
     def test_json_contains_26_svp_cards(self):
-        """The data file contains exactly 26 SVP gap-fill cards."""
+        """The data file contains exactly 25 SVP gap-fill cards."""
         with open(_get_data_file_path()) as f:
             data = json.load(f)
         svp_cards = [c for c in data["cards"] if c["set_api_id"] == "svp"]
-        assert len(svp_cards) == 26
+        assert len(svp_cards) == 25
 
     def test_json_contains_mep_set_definition(self):
         """The data file defines the MEP set."""
@@ -208,7 +208,7 @@ class TestSupplementaryCardsJSON:
         with open(_get_data_file_path()) as f:
             data = json.load(f)
         svp_ids = {c["api_card_id"] for c in data["cards"] if c["set_api_id"] == "svp"}
-        expected = {"svp-175", "svp-176", "svp-208", "svp-217", "svp-218", "svp-225", "svp-500"}
+        expected = {"svp-175", "svp-176", "svp-190", "svp-208", "svp-217", "svp-218", "svp-225"}
         assert expected.issubset(svp_ids)
 
 
@@ -239,7 +239,7 @@ class TestSeedSupplementaryCards:
         conn.close()
 
     def test_inserts_all_89_mep_cards(self, tmp_path):
-        """The seeder inserts all 89 MEP cards."""
+        """The seeder inserts all 88 MEP cards."""
         db_path = _create_test_db(tmp_path)
 
         with patch("app.database.settings") as mock_settings:
@@ -250,11 +250,11 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id LIKE 'mep-%'")
-        assert cur.fetchone()[0] == 89
+        assert cur.fetchone()[0] == 88
         conn.close()
 
     def test_inserts_all_26_svp_cards(self, tmp_path):
-        """The seeder inserts all 26 SVP gap-fill cards."""
+        """The seeder inserts all 25 SVP gap-fill cards."""
         db_path = _create_test_db(tmp_path)
 
         with patch("app.database.settings") as mock_settings:
@@ -267,11 +267,11 @@ class TestSeedSupplementaryCards:
         # SVP set already exists, so we just count newly inserted svp cards
         # The test DB has SVP set but no SVP cards
         cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id LIKE 'svp-%'")
-        assert cur.fetchone()[0] == 26
+        assert cur.fetchone()[0] == 25
         conn.close()
 
     def test_total_115_cards_inserted(self, tmp_path):
-        """The seeder inserts exactly 115 cards total."""
+        """The seeder inserts exactly 113 cards total."""
         db_path = _create_test_db(tmp_path)
 
         with patch("app.database.settings") as mock_settings:
@@ -282,7 +282,7 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM cards")
-        assert cur.fetchone()[0] == 115
+        assert cur.fetchone()[0] == 113
         conn.close()
 
     def test_species_mapping_resolved(self, tmp_path):
@@ -324,7 +324,7 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM cards")
-        assert cur.fetchone()[0] == 115  # Not 230
+        assert cur.fetchone()[0] == 113  # Not 226
         cur.execute("SELECT COUNT(*) FROM sets WHERE api_set_id = 'mep'")
         assert cur.fetchone()[0] == 1  # Not 2
         conn.close()
@@ -424,7 +424,7 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM cards")
-        assert cur.fetchone()[0] == 115
+        assert cur.fetchone()[0] == 113
         conn.close()
 
     def test_first_partner_cards_mapped_correctly(self, tmp_path):
@@ -481,7 +481,6 @@ class TestSeedSupplementaryCards:
             "svp-217": 34,    # Nidoking (Team Rocket's Nidoking ex)
             "svp-218": 53,    # Persian (Team Rocket's Persian ex)
             "svp-225": 25,    # Pikachu
-            "svp-500": 1024,  # Terapagos
         }
 
         conn = sqlite3.connect(db_path)
@@ -583,7 +582,7 @@ class TestSeedSupplementaryCards:
         conn.close()
 
     def test_cards_with_images_get_tcgdex_urls(self, tmp_path):
-        """114 supplementary cards have image URLs, 1 (mep-Museum) has NULL."""
+        """All 113 supplementary cards have image URLs."""
         db_path = _create_test_db(tmp_path)
 
         with patch("app.database.settings") as mock_settings:
@@ -594,19 +593,15 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
 
-        # 114 cards should have image URLs (mep-Museum has no front image)
+        # All 113 cards should have image URLs
         cur.execute("SELECT COUNT(*) FROM cards WHERE image_url IS NOT NULL")
         with_img = cur.fetchone()[0]
-        assert with_img == 114
+        assert with_img == 113
 
-        # 1 card should have NULL (mep-Museum)
+        # No cards should have NULL images
         cur.execute("SELECT COUNT(*) FROM cards WHERE image_url IS NULL")
         without_img = cur.fetchone()[0]
-        assert without_img == 1
-
-        # mep-Museum should be NULL
-        cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-Museum'")
-        assert cur.fetchone()[0] is None
+        assert without_img == 0
 
         # Verify MEP image URL uses Scrydex or TCGdex format
         cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-1'")
@@ -629,5 +624,9 @@ class TestSeedSupplementaryCards:
         url = cur.fetchone()[0]
         assert url is not None
         assert "tcgdex.net" in url or "scrydex.com" in url
+
+        # Verify excluded cards are NOT present
+        cur.execute("SELECT COUNT(*) FROM cards WHERE api_card_id IN ('mep-Museum', 'svp-500')")
+        assert cur.fetchone()[0] == 0
 
         conn.close()
