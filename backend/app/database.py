@@ -115,6 +115,10 @@ def run_migrations() -> None:
     # Step 4: Seed supplementary reference cards (TCGdex-sourced promos).
     _seed_supplementary_cards()
 
+    # Step 5: Fix known card-back images (cards whose image_url incorrectly
+    # points to the standard Pokémon card back instead of the card front).
+    _repair_card_back_images()
+
 
 def _repair_card_species_mapping() -> None:
     """Fix cards that are missing pokemon_species_id due to the Pokémon TCG API
@@ -380,6 +384,127 @@ def _seed_supplementary_cards() -> None:
         print(f"Supplementary cards: {', '.join(parts)}.")
     else:
         print("Supplementary cards: all already present.")
+
+    conn.close()
+
+
+def _repair_card_back_images() -> None:
+    """Fix cards whose image_url incorrectly points to the standard Pokémon
+    card back instead of the card front artwork.
+
+    The Pokémon TCG API returns a 186,316-byte card-back PNG for cards where
+    it has no front image. This repair replaces those known-bad URLs with
+    verified Scrydex front image URLs.
+
+    This runs automatically on every startup. It is:
+    - Idempotent: only updates cards with the known-bad URL pattern
+    - Non-destructive: never removes legitimate images
+    - Targeted: only touches the specific confirmed affected cards
+    - Offline: no network access required
+    - Safe: never touches collection, profiles, or binder data
+    """
+    import sqlite3
+
+    db_path = _get_db_path()
+    if not db_path.exists():
+        return
+
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+
+    # Known card-back URLs from the Pokémon TCG API.
+    # These are the URLs that return the standard card back (186,316 bytes,
+    # MD5: 0d69bedbfb0e324cc3521722ffcf288d) instead of the card front.
+    #
+    # Affected sets: mcd14, mcd15, mcd17, mcd18 (all 12 cards each = 48 total)
+    # Replacement source: Scrydex (verified front images)
+    _CARD_BACK_CORRECTIONS: dict[str, str | None] = {}
+
+    # McDonald's Collection 2014 (12 cards)
+    for i in range(1, 13):
+        card_id = f"mcd14-{i}"
+        bad_url = f"https://images.pokemontcg.io/mcd14/{i}_hires.png"
+        good_url = f"https://images.scrydex.com/pokemon/{card_id}/large"
+        _CARD_BACK_CORRECTIONS[card_id] = good_url
+
+    # McDonald's Collection 2015 (12 cards)
+    for i in range(1, 13):
+        card_id = f"mcd15-{i}"
+        bad_url = f"https://images.pokemontcg.io/mcd15/{i}_hires.png"
+        good_url = f"https://images.scrydex.com/pokemon/{card_id}/large"
+        _CARD_BACK_CORRECTIONS[card_id] = good_url
+
+    # McDonald's Collection 2017 (12 cards)
+    for i in range(1, 13):
+        card_id = f"mcd17-{i}"
+        bad_url = f"https://images.pokemontcg.io/mcd17/{i}_hires.png"
+        good_url = f"https://images.scrydex.com/pokemon/{card_id}/large"
+        _CARD_BACK_CORRECTIONS[card_id] = good_url
+
+    # McDonald's Collection 2018 (12 cards)
+    for i in range(1, 13):
+        card_id = f"mcd18-{i}"
+        bad_url = f"https://images.pokemontcg.io/mcd18/{i}_hires.png"
+        good_url = f"https://images.scrydex.com/pokemon/{card_id}/large"
+        _CARD_BACK_CORRECTIONS[card_id] = good_url
+
+    # mep-Museum: Scrydex also serves the card-back for this card.
+    # No legitimate front image exists. Set to NULL.
+    _CARD_BACK_CORRECTIONS["mep-Museum"] = None
+
+    # Known bad URL patterns (pokemontcg.io card-back responses)
+    _KNOWN_BAD_PATTERNS = [
+        "images.pokemontcg.io/mcd14/",
+        "images.pokemontcg.io/mcd15/",
+        "images.pokemontcg.io/mcd17/",
+        "images.pokemontcg.io/mcd18/",
+    ]
+    # Scrydex card-back URL for mep-Museum
+    _MEP_MUSEUM_BAD_URL = "https://images.scrydex.com/pokemon/mep-Museum/large"
+
+    corrected = 0
+    for api_card_id, correct_url in _CARD_BACK_CORRECTIONS.items():
+        if correct_url is None:
+            # Set to NULL only if currently the known-bad URL
+            cur.execute(
+                "UPDATE cards SET image_url = NULL "
+                "WHERE api_card_id = ? AND image_url = ?",
+                (api_card_id, _MEP_MUSEUM_BAD_URL),
+            )
+        else:
+            # Replace card-back URL with correct front URL.
+            # Only update if current URL matches one of the known-bad patterns.
+            cur.execute(
+                "SELECT image_url FROM cards WHERE api_card_id = ?",
+                (api_card_id,),
+            )
+            row = cur.fetchone()
+            if row and row[0]:
+                current_url = row[0]
+                is_bad = any(pattern in current_url for pattern in _KNOWN_BAD_PATTERNS)
+                if is_bad:
+                    cur.execute(
+                        "UPDATE cards SET image_url = ? WHERE api_card_id = ?",
+                        (correct_url, api_card_id),
+                    )
+                    corrected += cur.rowcount
+
+    # Also handle mep-Museum rowcount
+    cur.execute(
+        "SELECT image_url FROM cards WHERE api_card_id = 'mep-Museum'",
+    )
+    row = cur.fetchone()
+    if row and row[0] == _MEP_MUSEUM_BAD_URL:
+        cur.execute(
+            "UPDATE cards SET image_url = NULL WHERE api_card_id = 'mep-Museum'",
+        )
+        corrected += cur.rowcount
+
+    if corrected > 0:
+        conn.commit()
+        print(f"Card-back image repair: corrected {corrected} cards.")
+    else:
+        print("Card-back image repair: all images already correct.")
 
     conn.close()
 

@@ -583,7 +583,7 @@ class TestSeedSupplementaryCards:
         conn.close()
 
     def test_cards_with_images_get_tcgdex_urls(self, tmp_path):
-        """All 115 supplementary cards have image URLs."""
+        """114 supplementary cards have image URLs, 1 (mep-Museum) has NULL."""
         db_path = _create_test_db(tmp_path)
 
         with patch("app.database.settings") as mock_settings:
@@ -594,15 +594,19 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
 
-        # All 115 cards should have image URLs
+        # 114 cards should have image URLs (mep-Museum has no front image)
         cur.execute("SELECT COUNT(*) FROM cards WHERE image_url IS NOT NULL")
         with_img = cur.fetchone()[0]
-        assert with_img == 115
+        assert with_img == 114
 
-        # No cards should be missing images
+        # 1 card should have NULL (mep-Museum)
         cur.execute("SELECT COUNT(*) FROM cards WHERE image_url IS NULL")
         without_img = cur.fetchone()[0]
-        assert without_img == 0
+        assert without_img == 1
+
+        # mep-Museum should be NULL
+        cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-Museum'")
+        assert cur.fetchone()[0] is None
 
         # Verify MEP image URL uses Scrydex or TCGdex format
         cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-1'")
