@@ -281,7 +281,7 @@ class TestImportReplace:
         return {
             "format_version": 1,
             "exported_at": "2026-08-20T00:00:00Z",
-            "app_version": "0.3.1",
+            "app_version": "0.3.0",
             "profile": {"name": "Test", "binder_rows": 5, "binder_columns": 4, "binder_sort": "dex_number"},
             "collection": collection_entries,
         }
@@ -409,7 +409,7 @@ class TestImportMerge:
         return {
             "format_version": 1,
             "exported_at": "2026-08-20T00:00:00Z",
-            "app_version": "0.3.1",
+            "app_version": "0.3.0",
             "profile": {"name": "Test", "binder_rows": 5, "binder_columns": 4, "binder_sort": "dex_number"},
             "collection": collection_entries,
         }

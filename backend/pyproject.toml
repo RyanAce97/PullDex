@@ -1,6 +1,6 @@
 [project]
 name = "pulldex-backend"
-version = "0.3.1"
+version = "0.3.0"
 description = "PullDex backend API — Pokémon TCG Living Pokédex tracker"
 requires-python = ">=3.11"
 dependencies = [

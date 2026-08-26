@@ -4,7 +4,7 @@ A Pokémon TCG Living Pokédex tracker for collectors who complete their Pokéde
 
 PullDex helps you track which Pokémon species you've collected from opening packs, visualise your collection in a digital binder, and get smart recommendations for which sets to buy next to fill the gaps in your National Pokédex.
 
-**Current version: 0.3.1**
+**Current version: 0.3.0**
 
 ---
 
@@ -108,7 +108,7 @@ Each Pokémon has a fixed position in the binder. As you add cards to your colle
 Download the latest installer from the release output:
 
 ```
-PullDex Setup 0.3.1.exe
+PullDex Setup 0.3.0.exe
 ```
 
 Run the installer and follow the prompts. PullDex is self-contained — no Python, Node.js, or developer tools are required.
@@ -169,10 +169,14 @@ PullDex imports these supplementary cards to ensure complete promo coverage. The
 |------|-------|
 | Pokémon species | 1,025 |
 | TCG sets | 175 |
-| TCG cards | 20,594 |
-| Cards linked to species | 17,387 |
+| TCG cards | 20,592 |
+| Cards linked to species | 17,385 |
 
 The application includes validated species-mapping repair tooling that corrects known data inconsistencies from the primary API without modifying collection data.
+
+### Card Images
+
+Card images are loaded remotely from their respective hosting services (pokemontcg.io, Scrydex, TCGdex CDN). An internet connection is required to display card artwork. PullDex does not bundle or redistribute card images — they are fetched on demand from their original sources.
 
 ---
 
@@ -236,7 +240,7 @@ This orchestrates:
 2. Backend packaging (PyInstaller one-folder)
 3. Electron packaging + NSIS installer
 
-Output: `desktop/release/PullDex Setup 0.3.1.exe`
+Output: `desktop/release/PullDex Setup 0.3.0.exe`
 
 See [docs/DESKTOP.md](docs/DESKTOP.md) for build details and troubleshooting.
 
@@ -286,7 +290,15 @@ PullDex/
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, TanStack Query |
 | Desktop | Electron 31, electron-builder, PyInstaller |
 | Database | SQLite (via Python stdlib + SQLModel/SQLAlchemy) |
-| Testing | pytest (375 tests), TypeScript strict mode |
+| Testing | pytest (415 tests), TypeScript strict mode |
+
+---
+
+## Disclaimer
+
+PullDex is an unofficial fan-made application and is not affiliated with, endorsed by, or associated with Nintendo, The Pokémon Company, The Pokémon Company International, Creatures Inc., or GAME FREAK Inc.
+
+Pokémon and all related names, characters, and imagery are trademarks and copyright of their respective owners. Card artwork displayed within PullDex is fetched remotely from third-party card database services and is not bundled with or redistributed by this application.
 
 ---
 
