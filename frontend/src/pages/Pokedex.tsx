@@ -116,7 +116,7 @@ export function Pokedex() {
                 key={s.id}
                 species={s}
                 owned={!missingIds.has(s.id)}
-                onClick={() => navigate(`/pokedex/${s.id}`)}
+                onClick={() => navigate(`/pokedex/${s.id}`, { state: { from: "/pokedex" } })}
               />
             ))}
           </div>

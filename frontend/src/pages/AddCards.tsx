@@ -8,6 +8,7 @@ import {
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import type { CardSearchResult } from "../types";
 
 const PAGE_SIZE = 50;
@@ -63,6 +64,7 @@ export function AddCards() {
 
   const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(() => new Set());
   const removingEntryIds = useRef<Set<number>>(new Set());
+  const [previewCard, setPreviewCard] = useState<CardSearchResult | null>(null);
 
   const ownedCardIds = new Set(
     (collection ?? []).map((e) => e.card_id).filter((id): id is number => id !== null),
@@ -236,6 +238,7 @@ export function AddCards() {
                 isPending={pendingCardIds.has(card.id)}
                 onAdd={() => handleAdd(card.id)}
                 onRemove={() => handleRemove(card.id)}
+                onPreview={() => setPreviewCard(card)}
               />
             ))}
           </div>
@@ -264,6 +267,23 @@ export function AddCards() {
           )}
         </>
       )}
+
+      {/* Card preview modal */}
+      {previewCard && previewCard.image_url && (
+        <CardPreviewModal
+          imageUrl={previewCard.image_url}
+          alt={previewCard.pokemon_name ?? "Card"}
+          details={{
+            name: previewCard.pokemon_name,
+            setName: previewCard.set_name,
+            setCode: previewCard.set_code,
+            rarity: previewCard.rarity,
+            cardNumber: previewCard.card_number,
+            dexNumber: previewCard.national_dex_number,
+          }}
+          onClose={() => setPreviewCard(null)}
+        />
+      )}
     </div>
   );
 }
@@ -276,23 +296,30 @@ interface CardResultProps {
   isPending: boolean;
   onAdd: () => void;
   onRemove: () => void;
+  onPreview: () => void;
 }
 
-function CardResult({ card, isOwned, isPending, onAdd, onRemove }: CardResultProps) {
+function CardResult({ card, isOwned, isPending, onAdd, onRemove, onPreview }: CardResultProps) {
   return (
     <div
       className={`flex items-center gap-4 rounded-lg border p-3 transition-colors ${
         isOwned ? "bg-green-50 border-green-200" : "bg-white border-gray-200"
       }`}
     >
-      {/* Card image */}
+      {/* Card image — clickable for preview */}
       {card.image_url ? (
-        <img
-          src={card.image_url}
-          alt={card.pokemon_name ?? card.api_card_id ?? "Card"}
-          className="w-14 h-20 object-contain rounded shrink-0"
-          loading="lazy"
-        />
+        <button
+          onClick={onPreview}
+          className="shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
+          aria-label="Preview card image"
+        >
+          <img
+            src={card.image_url}
+            alt={card.pokemon_name ?? card.api_card_id ?? "Card"}
+            className="w-14 h-20 object-contain rounded"
+            loading="lazy"
+          />
+        </button>
       ) : (
         <div className="w-14 h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs shrink-0">
           No img

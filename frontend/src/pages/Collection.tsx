@@ -172,7 +172,7 @@ export function Collection() {
                 species={s}
                 isPending={pendingIds.has(s.species_id)}
                 onToggle={() => handleToggle(s)}
-                onDetail={() => navigate(`/pokedex/${s.species_id}`)}
+                onDetail={() => navigate(`/pokedex/${s.species_id}`, { state: { from: "/collection" } })}
               />
             ))}
           </div>

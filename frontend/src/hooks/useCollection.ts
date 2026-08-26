@@ -36,6 +36,7 @@ function useInvalidateCollectionRelated() {
     queryClient.invalidateQueries({ queryKey: queryKeys.setsSummary });
     queryClient.invalidateQueries({ queryKey: ["recommendations"] });
     queryClient.invalidateQueries({ queryKey: ["collection", "species"] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.binder });
   };
 }
 

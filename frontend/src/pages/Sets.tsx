@@ -117,7 +117,7 @@ export function Sets() {
               <SetSummaryCard
                 key={s.set_id}
                 set={s}
-                onClick={() => navigate(`/recommendations/${s.set_id}`)}
+                onClick={() => navigate(`/recommendations/${s.set_id}`, { state: { from: "/sets" } })}
               />
             ))}
           </div>

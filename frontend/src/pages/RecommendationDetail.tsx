@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useRecommendationSpecies } from "../hooks/useRecommendationSpecies";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -7,18 +7,23 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 export function RecommendationDetail() {
   const { setId } = useParams<{ setId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const numericSetId = Number(setId);
+
+  // Determine back navigation: use location state if available, fallback to /recommendations
+  const backTo = (location.state as { from?: string })?.from ?? "/recommendations";
+  const backLabel = backTo === "/sets" ? "Back to Sets" : "Back to Recommendations";
 
   const { data, isLoading, error } = useRecommendationSpecies(numericSetId);
 
   return (
     <div className="space-y-6">
       <button
-        onClick={() => navigate("/recommendations")}
+        onClick={() => navigate(backTo)}
         className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
       >
-        ← Back to Recommendations
+        &larr; {backLabel}
       </button>
 
       <h2 className="text-2xl font-bold">Missing Species in Set</h2>

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCardsByDex } from "../api/cards";
 import { getCardEntriesForSpecies } from "../api/collection";
@@ -17,12 +17,21 @@ import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { CardPreviewModal } from "../components/CardPreviewModal";
 import type { CardSearchResult, CollectionRead } from "../types";
 
 export function SpeciesDetail() {
   const { speciesId } = useParams<{ speciesId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const numericId = Number(speciesId);
+
+  // Determine back navigation: use location state if available, fallback to /pokedex
+  const backTo = (location.state as { from?: string })?.from ?? "/pokedex";
+  const backLabel = backTo === "/binder" ? "Back to Binder"
+    : backTo === "/collection" ? "Back to Collection"
+    : backTo.startsWith("/recommendations") ? "Back to Recommendations"
+    : "Back to Pokédex";
 
   const speciesQuery = useSpeciesQuery();
   const missingQuery = useMissingSpeciesQuery();
@@ -51,6 +60,7 @@ export function SpeciesDetail() {
 
   const [pendingCardIds, setPendingCardIds] = useState<Set<number>>(() => new Set());
   const [settingBinderCardId, setSettingBinderCardId] = useState<number | null>(null);
+  const [previewCard, setPreviewCard] = useState<CardSearchResult | null>(null);
   const queryClient = useQueryClient();
 
   const owned = species && missingQuery.data ? !missingQuery.data.has(species.id) : false;
@@ -118,10 +128,10 @@ export function SpeciesDetail() {
   return (
     <div className="space-y-6">
       <button
-        onClick={() => navigate("/collection")}
+        onClick={() => navigate(backTo)}
         className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
       >
-        ← Back to Collection
+        &larr; {backLabel}
       </button>
 
       {/* Species header */}
@@ -179,6 +189,7 @@ export function SpeciesDetail() {
                   onDecrement={() => handleDecrement(entry)}
                   onSetBinderCard={() => handleSetBinderCard(entry.id)}
                   isSettingBinder={settingBinderCardId === entry.id}
+                  onPreview={() => card && setPreviewCard(card)}
                 />
               );
             })}
@@ -201,11 +212,29 @@ export function SpeciesDetail() {
                 quantity={entryByCardId.get(card.id)?.quantity ?? 0}
                 isPending={pendingCardIds.has(card.id)}
                 onAdd={() => handleAddCard(card.id)}
+                onPreview={() => setPreviewCard(card)}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Card preview modal */}
+      {previewCard && previewCard.image_url && (
+        <CardPreviewModal
+          imageUrl={previewCard.image_url}
+          alt={previewCard.pokemon_name ?? "Card"}
+          details={{
+            name: previewCard.pokemon_name,
+            setName: previewCard.set_name,
+            setCode: previewCard.set_code,
+            rarity: previewCard.rarity,
+            cardNumber: previewCard.card_number,
+            dexNumber: previewCard.national_dex_number,
+          }}
+          onClose={() => setPreviewCard(null)}
+        />
+      )}
     </div>
   );
 }
@@ -219,6 +248,7 @@ function TrackedCardRow({
   onDecrement,
   onSetBinderCard,
   isSettingBinder,
+  onPreview,
 }: {
   entry: CollectionRead;
   card: CardSearchResult | undefined;
@@ -226,11 +256,18 @@ function TrackedCardRow({
   onDecrement: () => void;
   onSetBinderCard: () => void;
   isSettingBinder: boolean;
+  onPreview: () => void;
 }) {
   return (
     <div className={`flex items-center gap-3 rounded-lg p-3 ${entry.is_binder_card ? "bg-indigo-50 border border-indigo-200" : "bg-green-50 border border-green-200"}`}>
       {card?.image_url ? (
-        <img src={card.image_url} alt={card.pokemon_name ?? "Card"} className="w-12 h-16 object-contain rounded" loading="lazy" />
+        <button
+          onClick={onPreview}
+          className="shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
+          aria-label="Preview card image"
+        >
+          <img src={card.image_url} alt={card.pokemon_name ?? "Card"} className="w-12 h-16 object-contain rounded" loading="lazy" />
+        </button>
       ) : (
         <div className="w-12 h-16 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
           No img
@@ -290,12 +327,14 @@ function AvailableCardItem({
   quantity,
   isPending,
   onAdd,
+  onPreview,
 }: {
   card: CardSearchResult;
   isTracked: boolean;
   quantity: number;
   isPending: boolean;
   onAdd: () => void;
+  onPreview: () => void;
 }) {
   return (
     <div
@@ -305,7 +344,13 @@ function AvailableCardItem({
     >
       <div className="flex items-start gap-3">
         {card.image_url ? (
-          <img src={card.image_url} alt={card.pokemon_name ?? "Card"} className="w-14 h-20 object-contain rounded shrink-0" loading="lazy" />
+          <button
+            onClick={onPreview}
+            className="shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
+            aria-label="Preview card image"
+          >
+            <img src={card.image_url} alt={card.pokemon_name ?? "Card"} className="w-14 h-20 object-contain rounded" loading="lazy" />
+          </button>
         ) : (
           <div className="w-14 h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs shrink-0">No img</div>
         )}

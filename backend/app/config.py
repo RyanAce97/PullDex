@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # Application                                                          #
     # ------------------------------------------------------------------ #
     app_name: str = "PullDex"
-    app_version: str = "0.2.0"
+    app_version: str = "0.3.0"
     debug: bool = False
 
     # ------------------------------------------------------------------ #
