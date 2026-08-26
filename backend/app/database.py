@@ -204,11 +204,46 @@ def _repair_card_species_mapping() -> None:
         )
         updated += cur.rowcount
 
-    if updated > 0:
+    # ---------------------------------------------------------------
+    # Phase 2: Fix INCORRECT mappings (non-NULL but wrong species).
+    # These are cards where the Pokémon TCG API provided a wrong
+    # nationalPokedexNumbers value, confirmed via TCGdex cross-reference.
+    # ---------------------------------------------------------------
+
+    # Known incorrect mappings: api_card_id → (wrong_species_name, correct_species_name)
+    # Only add entries here that have been verified against TCGdex and
+    # the official card data.
+    _INCORRECT_MAPPINGS: dict[str, tuple[str, str]] = {
+        "me2pt5-84": ("marill", "azumarill"),  # Azumarill ex — API returns dex 183 (Marill), correct is 184
+    }
+
+    corrected = 0
+    for api_card_id, (wrong_name, correct_name) in _INCORRECT_MAPPINGS.items():
+        if correct_name not in species_id_by_name:
+            continue
+        if wrong_name not in species_id_by_name:
+            continue
+
+        correct_id = species_id_by_name[correct_name]
+        wrong_id = species_id_by_name[wrong_name]
+
+        # Only update if currently set to the known-wrong value (idempotent)
+        cur.execute(
+            "UPDATE cards SET pokemon_species_id = ? "
+            "WHERE api_card_id = ? AND pokemon_species_id = ?",
+            (correct_id, api_card_id, wrong_id),
+        )
+        corrected += cur.rowcount
+
+    total_changes = updated + corrected
+    if total_changes > 0:
         conn.commit()
-        print(f"Card species mapping: repaired {updated} cards.")
+        if updated > 0:
+            print(f"Card species mapping: repaired {updated} unmapped cards.")
+        if corrected > 0:
+            print(f"Card species mapping: corrected {corrected} incorrect mappings.")
     else:
-        print("Card species mapping: all cards already linked.")
+        print("Card species mapping: all cards already correct.")
 
     conn.close()
 
