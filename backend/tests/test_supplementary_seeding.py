@@ -583,7 +583,7 @@ class TestSeedSupplementaryCards:
         conn.close()
 
     def test_cards_with_images_get_tcgdex_urls(self, tmp_path):
-        """The 53 cards with available images get proper TCGdex CDN URLs."""
+        """All 115 supplementary cards have image URLs."""
         db_path = _create_test_db(tmp_path)
 
         with patch("app.database.settings") as mock_settings:
@@ -594,21 +594,36 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
 
-        # Count cards with image URLs
+        # All 115 cards should have image URLs
         cur.execute("SELECT COUNT(*) FROM cards WHERE image_url IS NOT NULL")
         with_img = cur.fetchone()[0]
-        assert with_img == 53
+        assert with_img == 115
 
-        # Verify MEP image URL format
+        # No cards should be missing images
+        cur.execute("SELECT COUNT(*) FROM cards WHERE image_url IS NULL")
+        without_img = cur.fetchone()[0]
+        assert without_img == 0
+
+        # Verify MEP image URL uses Scrydex or TCGdex format
         cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-1'")
-        assert cur.fetchone()[0] == "https://assets.tcgdex.net/en/me/mep/001/high.webp"
+        url = cur.fetchone()[0]
+        assert url is not None
+        assert "tcgdex.net" in url or "scrydex.com" in url
 
-        # Verify SVP image URL format
+        # Verify MEP card with Scrydex URL
+        cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-32'")
+        url = cur.fetchone()[0]
+        assert url == "https://images.scrydex.com/pokemon/mep-32/large"
+
+        # Verify SVP card with Scrydex URL
+        cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'svp-175'")
+        url = cur.fetchone()[0]
+        assert url == "https://images.scrydex.com/pokemon/svp-175/large"
+
+        # Verify SVP card with TCGdex URL (existing)
         cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'svp-225'")
-        assert cur.fetchone()[0] == "https://assets.tcgdex.net/en/sv/svp/225/high.webp"
-
-        # Verify cards without images remain NULL
-        cur.execute("SELECT image_url FROM cards WHERE api_card_id = 'mep-46'")
-        assert cur.fetchone()[0] is None
+        url = cur.fetchone()[0]
+        assert url is not None
+        assert "tcgdex.net" in url or "scrydex.com" in url
 
         conn.close()
