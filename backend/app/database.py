@@ -112,6 +112,9 @@ def run_migrations() -> None:
     # Step 3: Repair card-species mappings for cards missing nationalPokedexNumbers.
     _repair_card_species_mapping()
 
+    # Step 4: Seed supplementary reference cards (TCGdex-sourced promos).
+    _seed_supplementary_cards()
+
 
 def _repair_card_species_mapping() -> None:
     """Fix cards that are missing pokemon_species_id due to the Pokémon TCG API
@@ -244,6 +247,139 @@ def _repair_card_species_mapping() -> None:
             print(f"Card species mapping: corrected {corrected} incorrect mappings.")
     else:
         print("Card species mapping: all cards already correct.")
+
+    conn.close()
+
+
+def _get_data_dir() -> Path:
+    """Locate the bundled data directory.
+
+    When running from a PyInstaller bundle, data files are at
+    ``{_MEIPASS}/data/``.  In development, they are at
+    ``backend/app/data/`` (relative to this file).
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "data"  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent / "data"
+
+
+def _seed_supplementary_cards() -> None:
+    """Seed supplementary reference cards from bundled JSON data.
+
+    Inserts cards that are sourced from TCGdex (MEP Black Star Promos,
+    SVP gap-fill cards) which are not present in the Pokémon TCG API.
+
+    This runs automatically on every startup. It is:
+    - Idempotent: uses INSERT OR IGNORE (api_card_id is UNIQUE)
+    - Non-destructive: never modifies or deletes existing records
+    - Offline: reads from a bundled JSON file (no network access)
+    - Fast: skips all inserts if cards already exist
+    - Safe: never touches collection, profiles, or binder data
+
+    Only inserts cards that do not already exist in the database.
+    """
+    import json
+    import sqlite3
+
+    db_path = _get_db_path()
+    if not db_path.exists():
+        return
+
+    data_file = _get_data_dir() / "supplementary_cards.json"
+    if not data_file.is_file():
+        print(f"WARNING: Supplementary cards data not found at {data_file}")
+        return
+
+    # Load the card data
+    with open(data_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+
+    # Build species lookup: national_dex_number → species_id
+    cur.execute("SELECT id, national_dex_number FROM pokemon_species")
+    species_by_dex: dict[int, int] = {row[1]: row[0] for row in cur.fetchall()}
+
+    # Build set lookup: api_set_id → set_id
+    cur.execute("SELECT id, api_set_id FROM sets")
+    set_by_api_id: dict[str, int] = {row[1]: row[0] for row in cur.fetchall()}
+
+    # Step 1: Create any missing sets
+    sets_created = 0
+    for set_def in data.get("sets", []):
+        api_set_id = set_def["api_set_id"]
+        if api_set_id not in set_by_api_id:
+            cur.execute(
+                "INSERT OR IGNORE INTO sets (api_set_id, name, series, release_date) "
+                "VALUES (?, ?, ?, ?)",
+                (api_set_id, set_def["name"], set_def["series"], set_def.get("release_date")),
+            )
+            if cur.rowcount > 0:
+                sets_created += 1
+                # Get the new set's ID
+                cur.execute("SELECT id FROM sets WHERE api_set_id = ?", (api_set_id,))
+                row = cur.fetchone()
+                if row:
+                    set_by_api_id[api_set_id] = row[0]
+
+    # Step 2: Insert missing cards
+    cards_inserted = 0
+    for card_def in data.get("cards", []):
+        api_card_id = card_def["api_card_id"]
+        set_api_id = card_def["set_api_id"]
+        national_dex = card_def.get("national_dex_number")
+
+        # Resolve foreign keys
+        set_id = set_by_api_id.get(set_api_id)
+        species_id = species_by_dex.get(national_dex) if national_dex else None
+
+        cur.execute(
+            "INSERT OR IGNORE INTO cards "
+            "(api_card_id, set_id, pokemon_species_id, card_number, rarity, image_url) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                api_card_id,
+                set_id,
+                species_id,
+                card_def.get("card_number"),
+                card_def.get("rarity"),
+                card_def.get("image_url"),
+            ),
+        )
+        cards_inserted += cur.rowcount
+
+    # Step 3: Populate image URLs for existing supplementary cards that have
+    # image_url = NULL but the JSON now provides an image.
+    # This handles the upgrade path where cards were seeded before images
+    # were available. Only touches the specific supplementary cards listed
+    # in the JSON — never modifies unrelated card records.
+    images_updated = 0
+    for card_def in data.get("cards", []):
+        image_url = card_def.get("image_url")
+        if not image_url:
+            continue  # No image to populate
+
+        api_card_id = card_def["api_card_id"]
+        cur.execute(
+            "UPDATE cards SET image_url = ? "
+            "WHERE api_card_id = ? AND image_url IS NULL",
+            (image_url, api_card_id),
+        )
+        images_updated += cur.rowcount
+
+    if sets_created > 0 or cards_inserted > 0 or images_updated > 0:
+        conn.commit()
+        parts = []
+        if cards_inserted > 0:
+            parts.append(f"seeded {cards_inserted} cards")
+        if sets_created > 0:
+            parts.append(f"{sets_created} sets")
+        if images_updated > 0:
+            parts.append(f"updated {images_updated} image URLs")
+        print(f"Supplementary cards: {', '.join(parts)}.")
+    else:
+        print("Supplementary cards: all already present.")
 
     conn.close()
 

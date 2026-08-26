@@ -4,7 +4,7 @@ A Pokémon TCG Living Pokédex tracker for collectors who complete their Pokéde
 
 PullDex helps you track which Pokémon species you've collected from opening packs, visualise your collection in a digital binder, and get smart recommendations for which sets to buy next to fill the gaps in your National Pokédex.
 
-**Current version: 0.3.0**
+**Current version: 0.3.1**
 
 ---
 
@@ -108,7 +108,7 @@ Each Pokémon has a fixed position in the binder. As you add cards to your colle
 Download the latest installer from the release output:
 
 ```
-PullDex Setup 0.3.0.exe
+PullDex Setup 0.3.1.exe
 ```
 
 Run the installer and follow the prompts. PullDex is self-contained — no Python, Node.js, or developer tools are required.
@@ -236,7 +236,7 @@ This orchestrates:
 2. Backend packaging (PyInstaller one-folder)
 3. Electron packaging + NSIS installer
 
-Output: `desktop/release/PullDex Setup 0.3.0.exe`
+Output: `desktop/release/PullDex Setup 0.3.1.exe`
 
 See [docs/DESKTOP.md](docs/DESKTOP.md) for build details and troubleshooting.
 

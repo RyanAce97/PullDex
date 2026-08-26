@@ -1,0 +1,934 @@
+{
+  "version": 1,
+  "description": "Supplementary reference cards sourced from TCGdex. Includes MEP Black Star Promos (First Partner Illustration Collection + other promos) and SVP gap-fill cards not present in the Pokemon TCG API.",
+  "sets": [
+    {
+      "api_set_id": "mep",
+      "name": "MEP Black Star Promos",
+      "series": "Mega Evolution",
+      "release_date": null
+    }
+  ],
+  "cards": [
+    {
+      "api_card_id": "mep-1",
+      "set_api_id": "mep",
+      "card_number": "1",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/001/high.webp",
+      "national_dex_number": 154
+    },
+    {
+      "api_card_id": "mep-10",
+      "set_api_id": "mep",
+      "card_number": "10",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/010/high.webp",
+      "national_dex_number": 447
+    },
+    {
+      "api_card_id": "mep-11",
+      "set_api_id": "mep",
+      "card_number": "11",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/011/high.webp",
+      "national_dex_number": 380
+    },
+    {
+      "api_card_id": "mep-12",
+      "set_api_id": "mep",
+      "card_number": "12",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/012/high.webp",
+      "national_dex_number": 448
+    },
+    {
+      "api_card_id": "mep-13",
+      "set_api_id": "mep",
+      "card_number": "13",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/013/high.webp",
+      "national_dex_number": 3
+    },
+    {
+      "api_card_id": "mep-14",
+      "set_api_id": "mep",
+      "card_number": "14",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/014/high.webp",
+      "national_dex_number": 937
+    },
+    {
+      "api_card_id": "mep-15",
+      "set_api_id": "mep",
+      "card_number": "15",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/015/high.webp",
+      "national_dex_number": 888
+    },
+    {
+      "api_card_id": "mep-16",
+      "set_api_id": "mep",
+      "card_number": "16",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/016/high.webp",
+      "national_dex_number": 330
+    },
+    {
+      "api_card_id": "mep-17",
+      "set_api_id": "mep",
+      "card_number": "17",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/017/high.webp",
+      "national_dex_number": 849
+    },
+    {
+      "api_card_id": "mep-18",
+      "set_api_id": "mep",
+      "card_number": "18",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/018/high.webp",
+      "national_dex_number": 546
+    },
+    {
+      "api_card_id": "mep-19",
+      "set_api_id": "mep",
+      "card_number": "19",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/019/high.webp",
+      "national_dex_number": 547
+    },
+    {
+      "api_card_id": "mep-2",
+      "set_api_id": "mep",
+      "card_number": "2",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/002/high.webp",
+      "national_dex_number": 818
+    },
+    {
+      "api_card_id": "mep-20",
+      "set_api_id": "mep",
+      "card_number": "20",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/020/high.webp",
+      "national_dex_number": 215
+    },
+    {
+      "api_card_id": "mep-21",
+      "set_api_id": "mep",
+      "card_number": "21",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/021/high.webp",
+      "national_dex_number": 461
+    },
+    {
+      "api_card_id": "mep-22",
+      "set_api_id": "mep",
+      "card_number": "22",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/022/high.webp",
+      "national_dex_number": 935
+    },
+    {
+      "api_card_id": "mep-23",
+      "set_api_id": "mep",
+      "card_number": "23",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/023/high.webp",
+      "national_dex_number": 6
+    },
+    {
+      "api_card_id": "mep-24",
+      "set_api_id": "mep",
+      "card_number": "24",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/024/high.webp",
+      "national_dex_number": 741
+    },
+    {
+      "api_card_id": "mep-25",
+      "set_api_id": "mep",
+      "card_number": "25",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/025/high.webp",
+      "national_dex_number": 115
+    },
+    {
+      "api_card_id": "mep-26",
+      "set_api_id": "mep",
+      "card_number": "26",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/026/high.webp",
+      "national_dex_number": 648
+    },
+    {
+      "api_card_id": "mep-27",
+      "set_api_id": "mep",
+      "card_number": "27",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/027/high.webp",
+      "national_dex_number": 93
+    },
+    {
+      "api_card_id": "mep-28",
+      "set_api_id": "mep",
+      "card_number": "28",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/028/high.webp",
+      "national_dex_number": null
+    },
+    {
+      "api_card_id": "mep-29",
+      "set_api_id": "mep",
+      "card_number": "29",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/029/high.webp",
+      "national_dex_number": 6
+    },
+    {
+      "api_card_id": "mep-3",
+      "set_api_id": "mep",
+      "card_number": "3",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/003/high.webp",
+      "national_dex_number": 65
+    },
+    {
+      "api_card_id": "mep-30",
+      "set_api_id": "mep",
+      "card_number": "30",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/030/high.webp",
+      "national_dex_number": 6
+    },
+    {
+      "api_card_id": "mep-31",
+      "set_api_id": "mep",
+      "card_number": "31",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/031/high.webp",
+      "national_dex_number": 644
+    },
+    {
+      "api_card_id": "mep-32",
+      "set_api_id": "mep",
+      "card_number": "32",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 282
+    },
+    {
+      "api_card_id": "mep-33",
+      "set_api_id": "mep",
+      "card_number": "33",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 448
+    },
+    {
+      "api_card_id": "mep-34",
+      "set_api_id": "mep",
+      "card_number": "34",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 154
+    },
+    {
+      "api_card_id": "mep-35",
+      "set_api_id": "mep",
+      "card_number": "35",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 500
+    },
+    {
+      "api_card_id": "mep-36",
+      "set_api_id": "mep",
+      "card_number": "36",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 160
+    },
+    {
+      "api_card_id": "mep-37",
+      "set_api_id": "mep",
+      "card_number": "37",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/037/high.webp",
+      "national_dex_number": 1
+    },
+    {
+      "api_card_id": "mep-38",
+      "set_api_id": "mep",
+      "card_number": "38",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/038/high.webp",
+      "national_dex_number": 4
+    },
+    {
+      "api_card_id": "mep-39",
+      "set_api_id": "mep",
+      "card_number": "39",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/039/high.webp",
+      "national_dex_number": 7
+    },
+    {
+      "api_card_id": "mep-4",
+      "set_api_id": "mep",
+      "card_number": "4",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/004/high.webp",
+      "national_dex_number": 337
+    },
+    {
+      "api_card_id": "mep-40",
+      "set_api_id": "mep",
+      "card_number": "40",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/040/high.webp",
+      "national_dex_number": 387
+    },
+    {
+      "api_card_id": "mep-41",
+      "set_api_id": "mep",
+      "card_number": "41",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/041/high.webp",
+      "national_dex_number": 390
+    },
+    {
+      "api_card_id": "mep-42",
+      "set_api_id": "mep",
+      "card_number": "42",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/042/high.webp",
+      "national_dex_number": 393
+    },
+    {
+      "api_card_id": "mep-43",
+      "set_api_id": "mep",
+      "card_number": "43",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/043/high.webp",
+      "national_dex_number": 722
+    },
+    {
+      "api_card_id": "mep-44",
+      "set_api_id": "mep",
+      "card_number": "44",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/044/high.webp",
+      "national_dex_number": 725
+    },
+    {
+      "api_card_id": "mep-45",
+      "set_api_id": "mep",
+      "card_number": "45",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/045/high.webp",
+      "national_dex_number": 728
+    },
+    {
+      "api_card_id": "mep-46",
+      "set_api_id": "mep",
+      "card_number": "46",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 152
+    },
+    {
+      "api_card_id": "mep-47",
+      "set_api_id": "mep",
+      "card_number": "47",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 155
+    },
+    {
+      "api_card_id": "mep-48",
+      "set_api_id": "mep",
+      "card_number": "48",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 158
+    },
+    {
+      "api_card_id": "mep-49",
+      "set_api_id": "mep",
+      "card_number": "49",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 495
+    },
+    {
+      "api_card_id": "mep-5",
+      "set_api_id": "mep",
+      "card_number": "5",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/005/high.webp",
+      "national_dex_number": 425
+    },
+    {
+      "api_card_id": "mep-50",
+      "set_api_id": "mep",
+      "card_number": "50",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 498
+    },
+    {
+      "api_card_id": "mep-51",
+      "set_api_id": "mep",
+      "card_number": "51",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 501
+    },
+    {
+      "api_card_id": "mep-52",
+      "set_api_id": "mep",
+      "card_number": "52",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 810
+    },
+    {
+      "api_card_id": "mep-53",
+      "set_api_id": "mep",
+      "card_number": "53",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 813
+    },
+    {
+      "api_card_id": "mep-54",
+      "set_api_id": "mep",
+      "card_number": "54",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 816
+    },
+    {
+      "api_card_id": "mep-55",
+      "set_api_id": "mep",
+      "card_number": "55",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 252
+    },
+    {
+      "api_card_id": "mep-56",
+      "set_api_id": "mep",
+      "card_number": "56",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 255
+    },
+    {
+      "api_card_id": "mep-57",
+      "set_api_id": "mep",
+      "card_number": "57",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 258
+    },
+    {
+      "api_card_id": "mep-58",
+      "set_api_id": "mep",
+      "card_number": "58",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 650
+    },
+    {
+      "api_card_id": "mep-59",
+      "set_api_id": "mep",
+      "card_number": "59",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 653
+    },
+    {
+      "api_card_id": "mep-6",
+      "set_api_id": "mep",
+      "card_number": "6",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/006/high.webp",
+      "national_dex_number": 426
+    },
+    {
+      "api_card_id": "mep-60",
+      "set_api_id": "mep",
+      "card_number": "60",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 656
+    },
+    {
+      "api_card_id": "mep-61",
+      "set_api_id": "mep",
+      "card_number": "61",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 906
+    },
+    {
+      "api_card_id": "mep-62",
+      "set_api_id": "mep",
+      "card_number": "62",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 909
+    },
+    {
+      "api_card_id": "mep-63",
+      "set_api_id": "mep",
+      "card_number": "63",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 912
+    },
+    {
+      "api_card_id": "mep-64",
+      "set_api_id": "mep",
+      "card_number": "64",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 497
+    },
+    {
+      "api_card_id": "mep-65",
+      "set_api_id": "mep",
+      "card_number": "65",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 689
+    },
+    {
+      "api_card_id": "mep-66",
+      "set_api_id": "mep",
+      "card_number": "66",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 697
+    },
+    {
+      "api_card_id": "mep-67",
+      "set_api_id": "mep",
+      "card_number": "67",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 680
+    },
+    {
+      "api_card_id": "mep-68",
+      "set_api_id": "mep",
+      "card_number": "68",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 296
+    },
+    {
+      "api_card_id": "mep-69",
+      "set_api_id": "mep",
+      "card_number": "69",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 152
+    },
+    {
+      "api_card_id": "mep-7",
+      "set_api_id": "mep",
+      "card_number": "7",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/007/high.webp",
+      "national_dex_number": 54
+    },
+    {
+      "api_card_id": "mep-70",
+      "set_api_id": "mep",
+      "card_number": "70",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 696
+    },
+    {
+      "api_card_id": "mep-71",
+      "set_api_id": "mep",
+      "card_number": "71",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 718
+    },
+    {
+      "api_card_id": "mep-72",
+      "set_api_id": "mep",
+      "card_number": "72",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 36
+    },
+    {
+      "api_card_id": "mep-73",
+      "set_api_id": "mep",
+      "card_number": "73",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 94
+    },
+    {
+      "api_card_id": "mep-74",
+      "set_api_id": "mep",
+      "card_number": "74",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 655
+    },
+    {
+      "api_card_id": "mep-75",
+      "set_api_id": "mep",
+      "card_number": "75",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 181
+    },
+    {
+      "api_card_id": "mep-76",
+      "set_api_id": "mep",
+      "card_number": "76",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 169
+    },
+    {
+      "api_card_id": "mep-77",
+      "set_api_id": "mep",
+      "card_number": "77",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 706
+    },
+    {
+      "api_card_id": "mep-78",
+      "set_api_id": "mep",
+      "card_number": "78",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 848
+    },
+    {
+      "api_card_id": "mep-79",
+      "set_api_id": "mep",
+      "card_number": "79",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 5
+    },
+    {
+      "api_card_id": "mep-8",
+      "set_api_id": "mep",
+      "card_number": "8",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/008/high.webp",
+      "national_dex_number": 55
+    },
+    {
+      "api_card_id": "mep-80",
+      "set_api_id": "mep",
+      "card_number": "80",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 653
+    },
+    {
+      "api_card_id": "mep-81",
+      "set_api_id": "mep",
+      "card_number": "81",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 658
+    },
+    {
+      "api_card_id": "mep-82",
+      "set_api_id": "mep",
+      "card_number": "82",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 1008
+    },
+    {
+      "api_card_id": "mep-83",
+      "set_api_id": "mep",
+      "card_number": "83",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 80
+    },
+    {
+      "api_card_id": "mep-84",
+      "set_api_id": "mep",
+      "card_number": "84",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 781
+    },
+    {
+      "api_card_id": "mep-85",
+      "set_api_id": "mep",
+      "card_number": "85",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 411
+    },
+    {
+      "api_card_id": "mep-86",
+      "set_api_id": "mep",
+      "card_number": "86",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 79
+    },
+    {
+      "api_card_id": "mep-87",
+      "set_api_id": "mep",
+      "card_number": "87",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 688
+    },
+    {
+      "api_card_id": "mep-88",
+      "set_api_id": "mep",
+      "card_number": "88",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 893
+    },
+    {
+      "api_card_id": "mep-9",
+      "set_api_id": "mep",
+      "card_number": "9",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/me/mep/009/high.webp",
+      "national_dex_number": 65
+    },
+    {
+      "api_card_id": "mep-Museum",
+      "set_api_id": "mep",
+      "card_number": "Museum",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 25
+    },
+    {
+      "api_card_id": "svp-175",
+      "set_api_id": "svp",
+      "card_number": "175",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 196
+    },
+    {
+      "api_card_id": "svp-176",
+      "set_api_id": "svp",
+      "card_number": "176",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 197
+    },
+    {
+      "api_card_id": "svp-190",
+      "set_api_id": "svp",
+      "card_number": "190",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 25
+    },
+    {
+      "api_card_id": "svp-191",
+      "set_api_id": "svp",
+      "card_number": "191",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/191/high.webp",
+      "national_dex_number": 906
+    },
+    {
+      "api_card_id": "svp-192",
+      "set_api_id": "svp",
+      "card_number": "192",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/192/high.webp",
+      "national_dex_number": 909
+    },
+    {
+      "api_card_id": "svp-204",
+      "set_api_id": "svp",
+      "card_number": "204",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/204/high.webp",
+      "national_dex_number": 445
+    },
+    {
+      "api_card_id": "svp-205",
+      "set_api_id": "svp",
+      "card_number": "205",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/205/high.webp",
+      "national_dex_number": 150
+    },
+    {
+      "api_card_id": "svp-208",
+      "set_api_id": "svp",
+      "card_number": "208",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 494
+    },
+    {
+      "api_card_id": "svp-209",
+      "set_api_id": "svp",
+      "card_number": "209",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 642
+    },
+    {
+      "api_card_id": "svp-210",
+      "set_api_id": "svp",
+      "card_number": "210",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 641
+    },
+    {
+      "api_card_id": "svp-211",
+      "set_api_id": "svp",
+      "card_number": "211",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 576
+    },
+    {
+      "api_card_id": "svp-212",
+      "set_api_id": "svp",
+      "card_number": "212",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": 579
+    },
+    {
+      "api_card_id": "svp-213",
+      "set_api_id": "svp",
+      "card_number": "213",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/213/high.webp",
+      "national_dex_number": 160
+    },
+    {
+      "api_card_id": "svp-214",
+      "set_api_id": "svp",
+      "card_number": "214",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/214/high.webp",
+      "national_dex_number": 25
+    },
+    {
+      "api_card_id": "svp-215",
+      "set_api_id": "svp",
+      "card_number": "215",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/215/high.webp",
+      "national_dex_number": 849
+    },
+    {
+      "api_card_id": "svp-216",
+      "set_api_id": "svp",
+      "card_number": "216",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/216/high.webp",
+      "national_dex_number": 150
+    },
+    {
+      "api_card_id": "svp-217",
+      "set_api_id": "svp",
+      "card_number": "217",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/217/high.webp",
+      "national_dex_number": 34
+    },
+    {
+      "api_card_id": "svp-218",
+      "set_api_id": "svp",
+      "card_number": "218",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/218/high.webp",
+      "national_dex_number": 53
+    },
+    {
+      "api_card_id": "svp-219",
+      "set_api_id": "svp",
+      "card_number": "219",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": null
+    },
+    {
+      "api_card_id": "svp-220",
+      "set_api_id": "svp",
+      "card_number": "220",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": null
+    },
+    {
+      "api_card_id": "svp-221",
+      "set_api_id": "svp",
+      "card_number": "221",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": null
+    },
+    {
+      "api_card_id": "svp-222",
+      "set_api_id": "svp",
+      "card_number": "222",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": null
+    },
+    {
+      "api_card_id": "svp-223",
+      "set_api_id": "svp",
+      "card_number": "223",
+      "rarity": "Promo",
+      "image_url": null,
+      "national_dex_number": null
+    },
+    {
+      "api_card_id": "svp-224",
+      "set_api_id": "svp",
+      "card_number": "224",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/224/high.webp",
+      "national_dex_number": null
+    },
+    {
+      "api_card_id": "svp-225",
+      "set_api_id": "svp",
+      "card_number": "225",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/225/high.webp",
+      "national_dex_number": 25
+    },
+    {
+      "api_card_id": "svp-500",
+      "set_api_id": "svp",
+      "card_number": "500",
+      "rarity": "Promo",
+      "image_url": "https://assets.tcgdex.net/en/sv/svp/500/high.webp",
+      "national_dex_number": 1024
+    }
+  ]
+}

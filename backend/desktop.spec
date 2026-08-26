@@ -26,6 +26,7 @@ PROJECT_ROOT = BACKEND_DIR.parent
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 ALEMBIC_DIR = BACKEND_DIR / "alembic"
 SEED_DB = PROJECT_ROOT / "backups" / "pulldex_backup_initial_import.db"
+DATA_DIR = BACKEND_DIR / "app" / "data"
 
 # Validate required build artifacts exist
 if not FRONTEND_DIST.is_dir():
@@ -39,6 +40,9 @@ if not ALEMBIC_DIR.is_dir():
 
 if not SEED_DB.is_file():
     raise FileNotFoundError(f"Seed database not found at {SEED_DB}")
+
+if not DATA_DIR.is_dir():
+    raise FileNotFoundError(f"Data directory not found at {DATA_DIR}")
 
 # ---------------------------------------------------------------------------
 # Analysis
@@ -55,6 +59,8 @@ a = Analysis(
         (str(FRONTEND_DIST), "static"),
         # Bundle seed database
         (str(SEED_DB), "seed"),
+        # Bundle supplementary reference data
+        (str(DATA_DIR), "data"),
     ],
     hiddenimports=[
         # uvicorn internals that PyInstaller misses
