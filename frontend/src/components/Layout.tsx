@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { CardDataStatus } from "./CardDataStatus";
 
 interface NavItem {
   to: string;
@@ -64,7 +65,10 @@ export function Layout() {
       <header className="bg-white border-b border-gray-200 shadow-sm relative z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <h1 className="text-xl font-bold text-indigo-600">PullDex</h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-bold text-indigo-600">PullDex</h1>
+              <CardDataStatus />
+            </div>
             <nav className="flex gap-1">
               {navItems.map((item) => (
                 <NavDropdown key={item.to} item={item} isActive={isNavActive(item)} />

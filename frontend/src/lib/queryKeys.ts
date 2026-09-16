@@ -29,4 +29,7 @@ export const queryKeys = {
   // Binder
   binder: ["binder"] as const,
   binderCards: (params: Record<string, unknown>) => ["binder", "cards", params] as const,
+
+  // Card-data updater (Stage 2A — read-only status check)
+  cardDataUpdate: ["card-data", "update-check"] as const,
 } as const;

@@ -9,3 +9,4 @@ export type { SpeciesSummaryRead } from "./speciesSummary";
 export type { ProfileRead, ProfileCreate, ProfileRename, ProfileSettingsUpdate } from "./profile";
 export type { BinderCardInfo, BinderSlot, BinderPageResponse } from "./binder";
 export type { ExportResponse, ImportRequest, ImportResponse, BackupResponse, RestoreRequest, RestoreResponse } from "./data";
+export type { CardDataUpdateStatus, CardDataUpdateStatusRead, RemoteSetInfo } from "./cardData";
