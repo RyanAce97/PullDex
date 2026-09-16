@@ -9,6 +9,7 @@ import { Pokedex } from "./pages/Pokedex";
 import { RecommendationDetail } from "./pages/RecommendationDetail";
 import { Recommendations } from "./pages/Recommendations";
 import { Sets } from "./pages/Sets";
+import { Promos } from "./pages/Promos";
 import { Settings } from "./pages/Settings";
 import { SpeciesDetail } from "./pages/SpeciesDetail";
 
@@ -25,6 +26,7 @@ export function App() {
         <Route path="pokedex" element={<Pokedex />} />
         <Route path="pokedex/:speciesId" element={<SpeciesDetail />} />
         <Route path="sets" element={<Sets />} />
+        <Route path="promos" element={<Promos />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

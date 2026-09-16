@@ -139,3 +139,26 @@ class TestSetSummary:
 
         assert data[0]["owned_species_in_set"] == 1
         assert data[0]["missing_species_in_set"] == 0
+
+    def test_exposes_is_promo_flag(self, client, session):
+        """/sets/summary must surface the explicit is_promo classification so
+        the dedicated Sets/Promos pages can filter on it."""
+        bulbasaur = _species(session, 1, "bulbasaur")
+        pikachu = _species(session, 25, "pikachu")
+
+        normal = Set(api_set_id="sv1", name="Scarlet & Violet", series="SV", is_promo=False)
+        promo = Set(api_set_id="svp", name="SV Black Star Promos", series="SV", is_promo=True)
+        session.add(normal)
+        session.add(promo)
+        session.commit()
+        session.refresh(normal)
+        session.refresh(promo)
+        _card(session, "sv1-1", normal, bulbasaur)
+        _card(session, "svp-1", promo, pikachu)
+
+        data = client.get("/sets/summary").json()
+        by_id = {row["api_set_id"]: row for row in data}
+
+        assert "is_promo" in by_id["sv1"]
+        assert by_id["sv1"]["is_promo"] is False
+        assert by_id["svp"]["is_promo"] is True

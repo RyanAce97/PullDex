@@ -264,6 +264,12 @@ def validate_set_payload(payload: object, expected_set_id: str) -> dict:
         )
     _validate_release_date(set_meta.get("release_date"), "set")
 
+    # is_promo: required explicit boolean reference data (never inferred).
+    if "is_promo" not in set_meta:
+        raise SetValidationError("set.is_promo is required.")
+    if not isinstance(set_meta["is_promo"], bool):
+        raise SetValidationError("set.is_promo must be a boolean.")
+
     # length guards matching the model column limits (avoid DB corruption)
     if len(set_meta["name"]) > 150:
         raise SetValidationError("set.name exceeds 150 characters.")
@@ -652,12 +658,16 @@ class CardDataUpdater:
             ).first()
 
             release = _parse_release_date(set_meta.get("release_date"))
+            # is_promo is explicit reference data. Default to False if a
+            # (legacy) payload omits it, for backward compatibility.
+            is_promo = bool(set_meta.get("is_promo", False))
             if existing_set is None:
                 existing_set = Set(
                     api_set_id=api_set_id,
                     name=set_meta["name"],
                     series=set_meta["series"],
                     release_date=release,
+                    is_promo=is_promo,
                 )
                 self.session.add(existing_set)
                 self.session.flush()  # assign id for card FK
@@ -667,11 +677,13 @@ class CardDataUpdater:
                     existing_set.name != set_meta["name"]
                     or existing_set.series != set_meta["series"]
                     or existing_set.release_date != release
+                    or existing_set.is_promo != is_promo
                 )
                 if changed:
                     existing_set.name = set_meta["name"]
                     existing_set.series = set_meta["series"]
                     existing_set.release_date = release
+                    existing_set.is_promo = is_promo
                     self.session.add(existing_set)
                     counts.sets_updated += 1
 

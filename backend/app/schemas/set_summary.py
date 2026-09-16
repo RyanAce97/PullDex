@@ -19,6 +19,7 @@ class SetSummaryRead(BaseModel):
     name: str
     series: str
     release_date: date | None
+    is_promo: bool
     total_species_in_set: int
     owned_species_in_set: int
     missing_species_in_set: int

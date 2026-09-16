@@ -110,9 +110,10 @@ def db_fixture(tmp_path):
 MANIFEST_URL = "https://example.test/main/manifest.json"
 
 
-def _set_payload(set_id, name, series, cards, release_date="2020-01-01"):
+def _set_payload(set_id, name, series, cards, release_date="2020-01-01", is_promo=False):
     return {
-        "set": {"id": set_id, "name": name, "series": series, "release_date": release_date},
+        "set": {"id": set_id, "name": name, "series": series,
+                "release_date": release_date, "is_promo": is_promo},
         "card_count": len(cards),
         "cards": cards,
     }
@@ -154,6 +155,7 @@ def _build_remote(sets, data_version=2, schema_version=1):
             "card_count": payload["card_count"],
             "version": 1,
             "sha256": hashlib.sha256(raw).hexdigest(),
+            "is_promo": payload["set"].get("is_promo", False),
         })
     manifest = {
         "schema_version": schema_version,

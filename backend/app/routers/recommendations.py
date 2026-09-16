@@ -22,6 +22,10 @@ router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 @router.get("", response_model=RecommendationResponse, summary="Get pack recommendations")
 def recommendations(
     limit: Annotated[int, Query(ge=1, le=50, description="Maximum number of sets to recommend.")] = 10,
+    promos: Annotated[
+        bool,
+        Query(description="If false (default), recommend non-promotional sets; if true, recommend promotional sets."),
+    ] = False,
     session=Depends(get_session),
 ):
     """Return the top recommended TCG sets for completing the Living Dex.
@@ -30,8 +34,12 @@ def recommendations(
     they contain.  Only sets with at least one missing species appear.
 
     Tie-breaking: fewer total cards (higher density), then newest release date.
+
+    The ``promos`` flag selects the source pool: ``false`` (default) yields
+    non-promotional sets (the original behaviour), ``true`` yields
+    promotional sets. The ranking algorithm is identical for both.
     """
-    recs = get_set_recommendations(session, limit=limit)
+    recs = get_set_recommendations(session, limit=limit, promos=promos)
     total = get_total_species_count(session)
     owned = get_owned_species_count(session)
     missing = total - owned

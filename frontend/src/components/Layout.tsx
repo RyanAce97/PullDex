@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
     children: [
       { to: "/recommendations", label: "Recommendations" },
       { to: "/sets", label: "Sets" },
+      { to: "/promos", label: "Promos" },
     ],
   },
   { to: "/settings", label: "Settings" },
@@ -37,6 +38,7 @@ const childPathMap: Record<string, string> = {
   "/binder": "/collection",
   "/pokedex": "/collection",
   "/sets": "/recommendations",
+  "/promos": "/recommendations",
 };
 
 export function Layout() {

@@ -163,9 +163,10 @@ from app.services import card_data_updater_service as usvc
 
 
 def _set_file_bytes(set_id, cards, name="30th Celebration", series="Mega Evolution",
-                    release_date="2026-09-16"):
+                    release_date="2026-09-16", is_promo=False):
     payload = {
-        "set": {"id": set_id, "name": name, "series": series, "release_date": release_date},
+        "set": {"id": set_id, "name": name, "series": series,
+                "release_date": release_date, "is_promo": is_promo},
         "card_count": len(cards),
         "cards": cards,
     }
@@ -200,6 +201,7 @@ def _remote_with_one_set(data_version=2):
             "id": "me55", "name": "30th Celebration", "series": "Mega Evolution",
             "release_date": "2026-09-16", "file": "sets/me55.json",
             "card_count": 2, "version": 1, "sha256": hashlib.sha256(raw).hexdigest(),
+            "is_promo": False,
         }],
     }
     return manifest, {"sets/me55.json": raw}

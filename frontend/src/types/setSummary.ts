@@ -4,6 +4,7 @@ export interface SetSummaryRead {
   name: string;
   series: string;
   release_date: string | null;
+  is_promo: boolean;
   total_species_in_set: number;
   owned_species_in_set: number;
   missing_species_in_set: number;

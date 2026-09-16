@@ -34,6 +34,7 @@ def get_set_summaries(session: Session) -> list[dict]:
             Set.name,
             Set.series,
             Set.release_date,
+            Set.is_promo,
             func.count(Card.pokemon_species_id.distinct()).label("total_species_in_set"),  # type: ignore[union-attr]
         )
         .join(Card, Card.set_id == Set.id)
@@ -75,6 +76,7 @@ def get_set_summaries(session: Session) -> list[dict]:
             "name": row.name,
             "series": row.series,
             "release_date": row.release_date,
+            "is_promo": row.is_promo,
             "total_species_in_set": row.total_species_in_set,
             "owned_species_in_set": owned_in_set,
             "missing_species_in_set": missing_in_set,

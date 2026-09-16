@@ -20,6 +20,7 @@ from app.services.progress_service import get_owned_species_ids
 def get_set_recommendations(
     session: Session,
     limit: int = 10,
+    promos: bool = False,
 ) -> list[dict]:
     """Return sets ranked by how many missing species they can provide.
 
@@ -29,6 +30,13 @@ def get_set_recommendations(
     Args:
         session: An open SQLModel Session.
         limit:   Maximum number of recommendations to return.
+        promos:  When False (default), only NON-promotional sets are eligible
+                 (``Set.is_promo == False``) — the original Sets behaviour.
+                 When True, only promotional sets are eligible
+                 (``Set.is_promo == True``). The ranking algorithm, ordering,
+                 and limit are identical for both pools; only the eligible
+                 source pool differs, so promo and non-promo results can never
+                 contaminate each other.
 
     Returns:
         A list of dicts with keys: rank, set_id, api_set_id, set_name, series,
@@ -92,6 +100,10 @@ def get_set_recommendations(
         .join(total_cards_subq, total_cards_subq.c.set_id == Set.id)
         .join(total_species_subq, total_species_subq.c.set_id == Set.id)
         .where(Card.pokemon_species_id.in_(missing_ids))  # type: ignore[union-attr]
+        # Source-pool filter: the ONLY difference between Sets and Promos.
+        # Sets (promos=False) exclude every promotional set; Promos
+        # (promos=True) include only promotional sets. Ranking is unchanged.
+        .where(Set.is_promo == promos)  # type: ignore[arg-type]
         .group_by(
             Set.id,
             total_cards_subq.c.total_cards_in_set,

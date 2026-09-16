@@ -37,6 +37,16 @@ class Set(SQLModel, table=True):
         default=None,
         description="Official release date of the set.",
     )
+    is_promo: bool = Field(
+        default=False,
+        index=True,
+        description=(
+            "Whether this set is a promotional set (e.g. Black Star Promos, "
+            "McDonald's Collections, POP Series). This is explicit reference "
+            "data sourced from the public card-data catalogue — it is NEVER "
+            "inferred from the set name or series."
+        ),
+    )
 
     # ------------------------------------------------------------------
     # Relationships
