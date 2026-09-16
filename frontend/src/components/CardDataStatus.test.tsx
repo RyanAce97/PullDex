@@ -1,20 +1,23 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 import { CardDataStatus, describeCardDataStatus } from "./CardDataStatus";
 import { useCardDataUpdate } from "../hooks/useCardDataUpdate";
-import type { CardDataUpdateStatusRead } from "../types";
+import { useUpdateCardData } from "../hooks/useUpdateCardData";
+import type { CardDataUpdateStatusRead, CardDataUpdateResultRead } from "../types";
 
-// Mock the data hook so component tests never touch the network. Each test
-// drives a specific status through this mock.
+// Mock both hooks so component tests never touch the network.
 vi.mock("../hooks/useCardDataUpdate", () => ({
   useCardDataUpdate: vi.fn(),
 }));
+vi.mock("../hooks/useUpdateCardData", () => ({
+  useUpdateCardData: vi.fn(),
+}));
 
-const mockedHook = vi.mocked(useCardDataUpdate);
+const mockedCheck = vi.mocked(useCardDataUpdate);
+const mockedUpdate = vi.mocked(useUpdateCardData);
 
-/** Build a hook return value in the "success" shape TanStack Query would give. */
-function hookResult(
+function checkResult(
   partial: Partial<ReturnType<typeof useCardDataUpdate>>,
 ): ReturnType<typeof useCardDataUpdate> {
   return {
@@ -22,9 +25,23 @@ function hookResult(
     isLoading: false,
     isError: false,
     error: null,
-    // Only the fields the component reads matter; cast the rest.
     ...partial,
   } as ReturnType<typeof useCardDataUpdate>;
+}
+
+/** Build a mutation-hook stand-in. */
+function updateHook(
+  partial: Partial<ReturnType<typeof useUpdateCardData>> = {},
+): ReturnType<typeof useUpdateCardData> {
+  return {
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+    data: undefined,
+    error: null,
+    ...partial,
+  } as unknown as ReturnType<typeof useUpdateCardData>;
 }
 
 function statusData(
@@ -44,6 +61,33 @@ function statusData(
   };
 }
 
+function updateResult(
+  overrides: Partial<CardDataUpdateResultRead> = {},
+): CardDataUpdateResultRead {
+  return {
+    status: "UPDATED",
+    success: true,
+    message: "Card data updated successfully.",
+    local_data_version: 2,
+    remote_data_version: 2,
+    sets_created: 1,
+    sets_updated: 0,
+    cards_created: 120,
+    cards_updated: 3,
+    set_count: 178,
+    card_count: 20900,
+    backup_path: "/tmp/backup.db",
+    error: null,
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  mockedCheck.mockReset();
+  mockedUpdate.mockReset();
+  mockedUpdate.mockReturnValue(updateHook());
+});
+
 describe("describeCardDataStatus (pure)", () => {
   it("UP_TO_DATE has no button", () => {
     const v = describeCardDataStatus("UP_TO_DATE");
@@ -62,176 +106,191 @@ describe("describeCardDataStatus (pure)", () => {
     expect(v.showUpdateButton).toBe(true);
   });
 
-  it("UPDATE_AVAILABLE falls back to data version when counts absent", () => {
-    const v = describeCardDataStatus("UPDATE_AVAILABLE", {
-      remoteDataVersion: 2,
-    });
-    expect(v.message).toContain("data version 2");
-    expect(v.showUpdateButton).toBe(true);
-  });
-
-  it("REMOTE_UNAVAILABLE is subtle and buttonless", () => {
-    const v = describeCardDataStatus("REMOTE_UNAVAILABLE");
-    expect(v.message).toBe("Card data update check unavailable");
-    expect(v.showUpdateButton).toBe(false);
-  });
-
-  it("INVALID_MANIFEST is generic and buttonless", () => {
-    const v = describeCardDataStatus("INVALID_MANIFEST");
-    expect(v.message).toBe("Card data update check failed");
-    expect(v.showUpdateButton).toBe(false);
-  });
-
-  it("INCOMPATIBLE_SCHEMA explains incompatibility, no button", () => {
-    const v = describeCardDataStatus("INCOMPATIBLE_SCHEMA");
-    expect(v.message).toBe(
+  it("REMOTE_UNAVAILABLE / INVALID_MANIFEST / INCOMPATIBLE_SCHEMA are buttonless", () => {
+    expect(describeCardDataStatus("REMOTE_UNAVAILABLE").showUpdateButton).toBe(false);
+    expect(describeCardDataStatus("INVALID_MANIFEST").showUpdateButton).toBe(false);
+    expect(describeCardDataStatus("INCOMPATIBLE_SCHEMA").showUpdateButton).toBe(false);
+    expect(describeCardDataStatus("REMOTE_UNAVAILABLE").message).toBe(
+      "Card data update check unavailable",
+    );
+    expect(describeCardDataStatus("INVALID_MANIFEST").message).toBe(
+      "Card data update check failed",
+    );
+    expect(describeCardDataStatus("INCOMPATIBLE_SCHEMA").message).toBe(
       "Card data update is not compatible with this version of PullDex",
     );
-    expect(v.showUpdateButton).toBe(false);
   });
 });
 
-describe("CardDataStatus (component)", () => {
-  beforeEach(() => {
-    mockedHook.mockReset();
-  });
-
+describe("CardDataStatus — rendering", () => {
   it("renders nothing while the check is loading (non-blocking startup)", () => {
-    mockedHook.mockReturnValue(hookResult({ isLoading: true }));
+    mockedCheck.mockReturnValue(checkResult({ isLoading: true }));
     const { container } = render(<CardDataStatus />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing if the request itself errors (app stays usable)", () => {
-    mockedHook.mockReturnValue(hookResult({ isError: true, error: new Error("x") }));
+  it("renders nothing if the check request errors (app stays usable)", () => {
+    mockedCheck.mockReturnValue(checkResult({ isError: true, error: new Error("x") }));
     const { container } = render(<CardDataStatus />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("UP_TO_DATE renders the up-to-date message and no update button", () => {
-    mockedHook.mockReturnValue(hookResult({ data: statusData({ status: "UP_TO_DATE" }) }));
+  it("UP_TO_DATE shows the message and no update button", () => {
+    mockedCheck.mockReturnValue(checkResult({ data: statusData({ status: "UP_TO_DATE" }) }));
     render(<CardDataStatus />);
     expect(screen.getByText("Card data is up to date")).toBeInTheDocument();
     expect(screen.queryByTestId("card-data-update-button")).not.toBeInTheDocument();
   });
 
-  it("UPDATE_AVAILABLE renders message with counts and an Update button", () => {
-    mockedHook.mockReturnValue(
-      hookResult({
+  it("UPDATE_AVAILABLE shows message with counts and an Update button", () => {
+    mockedCheck.mockReturnValue(
+      checkResult({
         data: statusData({
           status: "UPDATE_AVAILABLE",
           remote_data_version: 2,
-          remote_card_count: 20900,
-          remote_set_count: 178,
           update_available: true,
         }),
       }),
     );
     render(<CardDataStatus />);
-    const msg = screen.getByTestId("card-data-status-message");
-    expect(msg).toHaveTextContent("New card data available");
-    expect(msg).toHaveTextContent("20,900 cards across 178 sets");
+    expect(screen.getByTestId("card-data-status-message")).toHaveTextContent(
+      "New card data available",
+    );
     expect(screen.getByTestId("card-data-update-button")).toHaveTextContent(
       "Update Card Data",
     );
   });
 
   it("shows the Update button ONLY for UPDATE_AVAILABLE", () => {
-    const nonUpdate: CardDataUpdateStatusRead["status"][] = [
-      "UP_TO_DATE",
-      "REMOTE_UNAVAILABLE",
-      "INVALID_MANIFEST",
-      "INCOMPATIBLE_SCHEMA",
-    ];
-    for (const status of nonUpdate) {
-      mockedHook.mockReturnValue(hookResult({ data: statusData({ status }) }));
+    for (const status of ["UP_TO_DATE", "REMOTE_UNAVAILABLE", "INVALID_MANIFEST", "INCOMPATIBLE_SCHEMA"] as const) {
+      mockedCheck.mockReturnValue(checkResult({ data: statusData({ status }) }));
       const { unmount } = render(<CardDataStatus />);
       expect(screen.queryByTestId("card-data-update-button")).not.toBeInTheDocument();
       unmount();
     }
   });
 
-  it("REMOTE_UNAVAILABLE renders a subtle status without breaking the UI", () => {
-    mockedHook.mockReturnValue(
-      hookResult({ data: statusData({ status: "REMOTE_UNAVAILABLE", remote_data_version: null }) }),
-    );
-    render(<CardDataStatus />);
-    expect(screen.getByText("Card data update check unavailable")).toBeInTheDocument();
-  });
-
-  it("INVALID_MANIFEST renders a safe generic status (no crash)", () => {
-    mockedHook.mockReturnValue(hookResult({ data: statusData({ status: "INVALID_MANIFEST" }) }));
-    render(<CardDataStatus />);
-    expect(screen.getByText("Card data update check failed")).toBeInTheDocument();
-  });
-
-  it("INCOMPATIBLE_SCHEMA is displayed safely", () => {
-    mockedHook.mockReturnValue(hookResult({ data: statusData({ status: "INCOMPATIBLE_SCHEMA" }) }));
-    render(<CardDataStatus />);
-    expect(
-      screen.getByText(
-        "Card data update is not compatible with this version of PullDex",
-      ),
-    ).toBeInTheDocument();
+  it("REMOTE_UNAVAILABLE / INVALID_MANIFEST / INCOMPATIBLE_SCHEMA render safely", () => {
+    for (const [status, text] of [
+      ["REMOTE_UNAVAILABLE", "Card data update check unavailable"],
+      ["INVALID_MANIFEST", "Card data update check failed"],
+      ["INCOMPATIBLE_SCHEMA", "Card data update is not compatible with this version of PullDex"],
+    ] as const) {
+      mockedCheck.mockReturnValue(checkResult({ data: statusData({ status }) }));
+      const { unmount } = render(<CardDataStatus />);
+      expect(screen.getByText(text)).toBeInTheDocument();
+      unmount();
+    }
   });
 });
 
-describe("CardDataStatus — Stage 2A button is non-functional", () => {
-  let fetchSpy: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    mockedHook.mockReset();
-    // Spy on fetch to prove NO network download happens on click.
-    fetchSpy = vi.fn(() =>
-      Promise.resolve(new Response("{}", { status: 200 })),
-    );
-    vi.stubGlobal("fetch", fetchSpy);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("clicking Update Card Data only shows an informational dialog", () => {
-    mockedHook.mockReturnValue(
-      hookResult({
-        data: statusData({ status: "UPDATE_AVAILABLE", update_available: true }),
+describe("CardDataStatus — update flow (Stage 2B)", () => {
+  function availableCheck() {
+    mockedCheck.mockReturnValue(
+      checkResult({
+        data: statusData({ status: "UPDATE_AVAILABLE", remote_data_version: 2, update_available: true }),
       }),
     );
-    render(<CardDataStatus />);
+  }
 
+  it("clicking Update Card Data starts the update (calls mutate)", () => {
+    availableCheck();
+    const mutate = vi.fn();
+    mockedUpdate.mockReturnValue(updateHook({ mutate }));
+
+    render(<CardDataStatus />);
+    fireEvent.click(screen.getByTestId("card-data-update-button"));
+
+    expect(mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a loading state while updating and disables the button", () => {
+    availableCheck();
+    mockedUpdate.mockReturnValue(updateHook({ isPending: true }));
+
+    render(<CardDataStatus />);
+    const button = screen.getByTestId("card-data-update-button");
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent("Updating");
+    expect(screen.getByTestId("card-data-updating")).toBeInTheDocument();
+  });
+
+  it("duplicate-click protection: a click while pending does not call mutate", () => {
+    availableCheck();
+    const mutate = vi.fn();
+    mockedUpdate.mockReturnValue(updateHook({ mutate, isPending: true }));
+
+    render(<CardDataStatus />);
+    // Button is disabled while pending; force the handler anyway to prove the
+    // in-handler guard also protects against a double submit.
+    fireEvent.click(screen.getByTestId("card-data-update-button"));
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("renders a success dialog when a result is present and opened", () => {
+    availableCheck();
+    // Provide a mutate stub that invokes the onSettled callback so the dialog opens.
+    const mutate = vi.fn((_vars: unknown, opts?: { onSettled?: () => void }) => {
+      opts?.onSettled?.();
+    });
+    mockedUpdate.mockReturnValue(
+      updateHook({ mutate, isSuccess: true, data: updateResult({ status: "UPDATED", local_data_version: 2 }) }),
+    );
+
+    render(<CardDataStatus />);
     fireEvent.click(screen.getByTestId("card-data-update-button"));
 
     const dialog = screen.getByTestId("card-data-update-dialog");
     expect(dialog).toBeInTheDocument();
-    expect(dialog).toHaveTextContent(
-      "Card data updates will be available in a future update.",
+    expect(screen.getByTestId("card-data-result-message")).toHaveTextContent(
+      "Card data updated successfully.",
+    );
+    expect(screen.getByTestId("card-data-result-detail")).toHaveTextContent(
+      "data version 2",
     );
   });
 
-  it("clicking Update Card Data performs NO network request (no download)", () => {
-    mockedHook.mockReturnValue(
-      hookResult({
-        data: statusData({ status: "UPDATE_AVAILABLE", update_available: true }),
+  it("renders a safe failure dialog on a failed update result", () => {
+    availableCheck();
+    const mutate = vi.fn((_vars: unknown, opts?: { onSettled?: () => void }) => {
+      opts?.onSettled?.();
+    });
+    mockedUpdate.mockReturnValue(
+      updateHook({
+        mutate,
+        isSuccess: true,
+        data: updateResult({
+          status: "DATABASE_UPDATE_FAILED",
+          success: false,
+          message: "The card-data update could not be applied; no changes were made.",
+          error: "some internal reason",
+        }),
       }),
     );
-    render(<CardDataStatus />);
 
+    render(<CardDataStatus />);
     fireEvent.click(screen.getByTestId("card-data-update-button"));
 
-    // The whole point of Stage 2A: the button downloads nothing and hits no
-    // endpoint. fetch must never be called as a result of the click.
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId("card-data-update-dialog")).toHaveTextContent(
+      "Card Data Update Failed",
+    );
+    expect(screen.getByTestId("card-data-result-message")).toHaveTextContent(
+      "could not be applied",
+    );
+    // No detail line for non-UPDATED results.
+    expect(screen.queryByTestId("card-data-result-detail")).not.toBeInTheDocument();
   });
 
-  it("the dialog can be closed again", () => {
-    mockedHook.mockReturnValue(
-      hookResult({
-        data: statusData({ status: "UPDATE_AVAILABLE", update_available: true }),
-      }),
+  it("the result dialog can be closed", () => {
+    availableCheck();
+    const mutate = vi.fn((_vars: unknown, opts?: { onSettled?: () => void }) => {
+      opts?.onSettled?.();
+    });
+    mockedUpdate.mockReturnValue(
+      updateHook({ mutate, isSuccess: true, data: updateResult() }),
     );
-    render(<CardDataStatus />);
 
+    render(<CardDataStatus />);
     fireEvent.click(screen.getByTestId("card-data-update-button"));
     expect(screen.getByTestId("card-data-update-dialog")).toBeInTheDocument();
 

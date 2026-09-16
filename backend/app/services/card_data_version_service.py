@@ -48,6 +48,18 @@ def set_local_card_data_version(session: Session, version: int) -> None:
     check. This only writes to the isolated ``app_metadata`` table and never
     touches card/collection/profile/binder data.
     """
+    stage_local_card_data_version(session, version)
+    session.commit()
+
+
+def stage_local_card_data_version(session: Session, version: int) -> None:
+    """Stage the local card-data version write WITHOUT committing.
+
+    Adds/updates the ``card_data_version`` row on the session but leaves the
+    transaction open so the caller can commit it atomically alongside other
+    changes (e.g. a card-data merge). Only touches the isolated
+    ``app_metadata`` table.
+    """
     row = session.exec(
         select(AppMetadata).where(AppMetadata.key == CARD_DATA_VERSION_KEY)
     ).first()
@@ -57,4 +69,3 @@ def set_local_card_data_version(session: Session, version: int) -> None:
     else:
         row.value = str(int(version))
         session.add(row)
-    session.commit()

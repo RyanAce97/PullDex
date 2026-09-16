@@ -26,3 +26,25 @@ class CardDataUpdateStatusRead(BaseModel):
     update_available: bool = False
     error: str | None = None
     sets: list[RemoteSetInfoRead] = []
+
+
+class CardDataUpdateResultRead(BaseModel):
+    """Result of an actual card-data update (Stage 2B).
+
+    ``error`` carries a short, non-sensitive reason for diagnostics; it never
+    contains a stack trace. The UI should prefer ``message`` for display.
+    """
+
+    status: str
+    success: bool
+    message: str
+    local_data_version: int
+    remote_data_version: int | None = None
+    sets_created: int = 0
+    sets_updated: int = 0
+    cards_created: int = 0
+    cards_updated: int = 0
+    set_count: int | None = None
+    card_count: int | None = None
+    backup_path: str | None = None
+    error: str | None = None

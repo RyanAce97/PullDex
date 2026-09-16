@@ -36,3 +36,33 @@ export interface CardDataUpdateStatusRead {
   error: string | null;
   sets: RemoteSetInfo[];
 }
+
+/** Possible outcomes of an actual card-data update (Stage 2B). */
+export type CardDataUpdateResultStatus =
+  | "UPDATED"
+  | "ALREADY_UP_TO_DATE"
+  | "REMOTE_UNAVAILABLE"
+  | "INVALID_MANIFEST"
+  | "INCOMPATIBLE_SCHEMA"
+  | "DOWNLOAD_FAILED"
+  | "HASH_MISMATCH"
+  | "INVALID_SET_DATA"
+  | "DATABASE_BACKUP_FAILED"
+  | "DATABASE_UPDATE_FAILED";
+
+/** Result of performing an actual card-data update (Stage 2B). */
+export interface CardDataUpdateResultRead {
+  status: CardDataUpdateResultStatus;
+  success: boolean;
+  message: string;
+  local_data_version: number;
+  remote_data_version: number | null;
+  sets_created: number;
+  sets_updated: number;
+  cards_created: number;
+  cards_updated: number;
+  set_count: number | null;
+  card_count: number | null;
+  backup_path: string | null;
+  error: string | null;
+}

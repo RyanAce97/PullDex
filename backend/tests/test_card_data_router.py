@@ -7,7 +7,7 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.database import get_session
 from app.main import app
@@ -148,3 +148,140 @@ class TestUpdateCheckRoute:
         body = client.get("/card-data/update-check").json()
         assert body["local_data_version"] == 2
         assert body["status"] == "UP_TO_DATE"
+
+
+# ---------------------------------------------------------------------------
+# POST /card-data/update (Stage 2B) — no network, backup mocked
+# ---------------------------------------------------------------------------
+
+import hashlib
+
+from app.models.pokemon_species import PokemonSpecies
+from app.models.set import Set as SetModel
+from app.models.card import Card as CardModel
+from app.services import card_data_updater_service as usvc
+
+
+def _set_file_bytes(set_id, cards, name="30th Celebration", series="Mega Evolution",
+                    release_date="2026-09-16"):
+    payload = {
+        "set": {"id": set_id, "name": name, "series": series, "release_date": release_date},
+        "card_count": len(cards),
+        "cards": cards,
+    }
+    return (json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+
+
+def _card_obj(api_card_id, number, dex=None, species=None):
+    return {
+        "api_card_id": api_card_id,
+        "card_number": number,
+        "rarity": "Common",
+        "variant": None,
+        "image_url": f"http://img/{api_card_id}",
+        "national_dex_number": dex,
+        "species_name": species,
+    }
+
+
+def _remote_with_one_set(data_version=2):
+    cards = [
+        _card_obj("me55-1", "1", dex=25, species="pikachu"),
+        _card_obj("me55-2", "2", dex=None, species=None),  # Trainer
+    ]
+    raw = _set_file_bytes("me55", cards)
+    manifest = {
+        "schema_version": 1,
+        "data_version": data_version,
+        "updated_at": "2026-09-16T00:00:00Z",
+        "set_count": 1,
+        "card_count": 2,
+        "sets": [{
+            "id": "me55", "name": "30th Celebration", "series": "Mega Evolution",
+            "release_date": "2026-09-16", "file": "sets/me55.json",
+            "card_count": 2, "version": 1, "sha256": hashlib.sha256(raw).hexdigest(),
+        }],
+    }
+    return manifest, {"sets/me55.json": raw}
+
+
+class TestUpdateRoute:
+    def test_successful_update(self, client, session, monkeypatch, tmp_path):
+        # Seed the species referenced by the remote card.
+        session.add(PokemonSpecies(national_dex_number=25, name="pikachu", generation=1))
+        session.add(AppMetadata(key="card_data_version", value="1"))
+        session.commit()
+
+        manifest, files = _remote_with_one_set(data_version=2)
+        monkeypatch.setattr(usvc, "fetch_manifest_text", lambda url, timeout: json.dumps(manifest))
+        monkeypatch.setattr(
+            usvc, "fetch_set_file_bytes",
+            lambda url, timeout: files["sets/" + url.rsplit("/", 1)[1]],
+        )
+        # Mock the backup so the router test does not touch the real DB path.
+        monkeypatch.setattr(
+            usvc, "create_pre_update_backup",
+            lambda *a, **k: str(tmp_path / "backup.db"),
+        )
+
+        resp = client.post("/card-data/update")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "UPDATED"
+        assert body["success"] is True
+        assert body["local_data_version"] == 2
+        assert body["cards_created"] == 2
+        assert body["sets_created"] == 1
+        assert "message" in body and body["message"]
+        # No stack trace leaked.
+        assert body["error"] is None
+
+        # Version persisted, reference data present, species untouched.
+        assert get_local_card_data_version(session) == 2
+        created = session.exec(select(CardModel).where(CardModel.api_card_id == "me55-1")).first()
+        assert created is not None
+
+    def test_already_up_to_date(self, client, session, monkeypatch, tmp_path):
+        session.add(PokemonSpecies(national_dex_number=25, name="pikachu", generation=1))
+        session.add(AppMetadata(key="card_data_version", value="9"))
+        session.commit()
+        manifest, files = _remote_with_one_set(data_version=2)  # remote below local
+        monkeypatch.setattr(usvc, "fetch_manifest_text", lambda url, timeout: json.dumps(manifest))
+        monkeypatch.setattr(usvc, "fetch_set_file_bytes",
+                            lambda url, timeout: files["sets/" + url.rsplit("/", 1)[1]])
+        monkeypatch.setattr(usvc, "create_pre_update_backup", lambda *a, **k: str(tmp_path / "b.db"))
+
+        body = client.post("/card-data/update").json()
+        assert body["status"] == "ALREADY_UP_TO_DATE"
+        assert body["success"] is True
+        assert get_local_card_data_version(session) == 9
+
+    def test_remote_unavailable_is_safe(self, client, session, monkeypatch):
+        session.add(AppMetadata(key="card_data_version", value="1"))
+        session.commit()
+
+        def boom(url, timeout):
+            raise TimeoutError("no network")
+
+        monkeypatch.setattr(usvc, "fetch_manifest_text", boom)
+        body = client.post("/card-data/update").json()
+        assert body["status"] == "REMOTE_UNAVAILABLE"
+        assert body["success"] is False
+        # Local version untouched.
+        assert get_local_card_data_version(session) == 1
+
+    def test_duplicate_run_is_blocked(self, client, session, monkeypatch):
+        # Hold the router lock to simulate an in-progress update, then confirm a
+        # second request is rejected safely without starting a merge.
+        from app.routers import card_data as router_mod
+
+        acquired = router_mod._update_lock.acquire(blocking=False)
+        assert acquired
+        try:
+            body = client.post("/card-data/update").json()
+        finally:
+            router_mod._update_lock.release()
+
+        assert body["status"] == "DATABASE_UPDATE_FAILED"
+        assert body["success"] is False
+        assert "already in progress" in (body["error"] or "").lower()
