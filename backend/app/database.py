@@ -274,7 +274,9 @@ def _seed_supplementary_cards() -> None:
     SVP gap-fill cards) which are not present in the Pokémon TCG API.
 
     This runs automatically on every startup. It is:
-    - Idempotent: uses INSERT OR IGNORE (api_card_id is UNIQUE)
+    - Idempotent: checks api_card_id existence explicitly before inserting
+      (the schema indexes api_card_id as non-unique, so we cannot rely on
+      INSERT OR IGNORE to prevent duplicates)
     - Non-destructive: never modifies or deletes existing records
     - Offline: reads from a bundled JSON file (no network access)
     - Fast: skips all inserts if cards already exist
@@ -309,6 +311,14 @@ def _seed_supplementary_cards() -> None:
     cur.execute("SELECT id, api_set_id FROM sets")
     set_by_api_id: dict[str, int] = {row[1]: row[0] for row in cur.fetchall()}
 
+    # Build the set of existing card identifiers up front so seeding is
+    # idempotent regardless of whether the database enforces a UNIQUE index
+    # on api_card_id. The Alembic-created schema indexes api_card_id as
+    # NON-unique, so INSERT OR IGNORE alone cannot prevent duplicates — we
+    # must check existence explicitly.
+    cur.execute("SELECT api_card_id FROM cards WHERE api_card_id IS NOT NULL")
+    existing_card_ids: set[str] = {row[0] for row in cur.fetchall()}
+
     # Step 1: Create any missing sets
     sets_created = 0
     for set_def in data.get("sets", []):
@@ -327,10 +337,15 @@ def _seed_supplementary_cards() -> None:
                 if row:
                     set_by_api_id[api_set_id] = row[0]
 
-    # Step 2: Insert missing cards
+    # Step 2: Insert missing cards (skip any api_card_id that already exists).
     cards_inserted = 0
     for card_def in data.get("cards", []):
         api_card_id = card_def["api_card_id"]
+
+        # Explicit existence check — do not rely on a UNIQUE constraint.
+        if api_card_id in existing_card_ids:
+            continue
+
         set_api_id = card_def["set_api_id"]
         national_dex = card_def.get("national_dex_number")
 
@@ -339,7 +354,7 @@ def _seed_supplementary_cards() -> None:
         species_id = species_by_dex.get(national_dex) if national_dex else None
 
         cur.execute(
-            "INSERT OR IGNORE INTO cards "
+            "INSERT INTO cards "
             "(api_card_id, set_id, pokemon_species_id, card_number, rarity, image_url) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (
@@ -351,6 +366,7 @@ def _seed_supplementary_cards() -> None:
                 card_def.get("image_url"),
             ),
         )
+        existing_card_ids.add(api_card_id)
         cards_inserted += cur.rowcount
 
     # Step 3: Populate image URLs for existing supplementary cards that have

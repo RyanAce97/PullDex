@@ -145,13 +145,13 @@ class TestSupplementaryCardsJSON:
         assert "version" in data
         assert "sets" in data
         assert "cards" in data
-        assert data["version"] == 1
+        assert data["version"] == 2
 
     def test_json_contains_115_cards(self):
-        """The data file contains exactly 113 cards."""
+        """The data file contains exactly 304 cards (113 original + 191 30th Celebration)."""
         with open(_get_data_file_path()) as f:
             data = json.load(f)
-        assert len(data["cards"]) == 113
+        assert len(data["cards"]) == 304
 
     def test_json_contains_89_mep_cards(self):
         """The data file contains exactly 88 MEP cards."""
@@ -168,11 +168,11 @@ class TestSupplementaryCardsJSON:
         assert len(svp_cards) == 25
 
     def test_json_contains_mep_set_definition(self):
-        """The data file defines the MEP set."""
+        """The data file defines the MEP set (among 3 total sets)."""
         with open(_get_data_file_path()) as f:
             data = json.load(f)
-        assert len(data["sets"]) == 1
-        mep_set = data["sets"][0]
+        assert len(data["sets"]) == 3
+        mep_set = next(s for s in data["sets"] if s["api_set_id"] == "mep")
         assert mep_set["api_set_id"] == "mep"
         assert mep_set["name"] == "MEP Black Star Promos"
         assert mep_set["series"] == "Mega Evolution"
@@ -271,7 +271,7 @@ class TestSeedSupplementaryCards:
         conn.close()
 
     def test_total_115_cards_inserted(self, tmp_path):
-        """The seeder inserts exactly 113 cards total."""
+        """The seeder inserts exactly 304 cards total."""
         db_path = _create_test_db(tmp_path)
 
         with patch("app.database.settings") as mock_settings:
@@ -282,7 +282,7 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM cards")
-        assert cur.fetchone()[0] == 113
+        assert cur.fetchone()[0] == 304
         conn.close()
 
     def test_species_mapping_resolved(self, tmp_path):
@@ -324,7 +324,7 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM cards")
-        assert cur.fetchone()[0] == 113  # Not 226
+        assert cur.fetchone()[0] == 304  # Not 608
         cur.execute("SELECT COUNT(*) FROM sets WHERE api_set_id = 'mep'")
         assert cur.fetchone()[0] == 1  # Not 2
         conn.close()
@@ -424,7 +424,7 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM cards")
-        assert cur.fetchone()[0] == 113
+        assert cur.fetchone()[0] == 304
         conn.close()
 
     def test_first_partner_cards_mapped_correctly(self, tmp_path):
@@ -593,10 +593,10 @@ class TestSeedSupplementaryCards:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
 
-        # All 113 cards should have image URLs
+        # All 304 cards should have image URLs
         cur.execute("SELECT COUNT(*) FROM cards WHERE image_url IS NOT NULL")
         with_img = cur.fetchone()[0]
-        assert with_img == 113
+        assert with_img == 304
 
         # No cards should have NULL images
         cur.execute("SELECT COUNT(*) FROM cards WHERE image_url IS NULL")
