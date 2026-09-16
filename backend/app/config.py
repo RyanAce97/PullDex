@@ -68,6 +68,25 @@ class Settings(BaseSettings):
     pokemon_tcg_api_key: str | None = None
 
     # ------------------------------------------------------------------ #
+    # Card-data updater (Stage 1: read-only manifest check)                #
+    # ------------------------------------------------------------------ #
+    # Public card-data manifest (raw GitHub file). Configurable so the
+    # source can be changed without code changes. Stage 1 only reads this
+    # manifest to determine whether newer card data is available; it never
+    # downloads set files or modifies card data.
+    card_data_manifest_url: str = (
+        "https://raw.githubusercontent.com/RyanAce97/PullDex-Card-Data/main/manifest.json"
+    )
+
+    # Highest manifest schema_version this build understands. A remote
+    # manifest with a higher schema_version is reported as INCOMPATIBLE_SCHEMA.
+    card_data_supported_schema_version: int = 1
+
+    # Network timeout (seconds) for the manifest request. Kept short so a
+    # slow/unavailable host never blocks anything for long.
+    card_data_request_timeout: float = 10.0
+
+    # ------------------------------------------------------------------ #
     # CORS                                                                 #
     # ------------------------------------------------------------------ #
     allowed_origins: list[str] = ["http://localhost:5173"]

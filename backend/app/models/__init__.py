@@ -14,6 +14,7 @@ from app.models.set import Set  # noqa: F401
 from app.models.card import Card  # noqa: F401
 from app.models.profile import Profile  # noqa: F401
 from app.models.collection import Collection  # noqa: F401
+from app.models.app_metadata import AppMetadata  # noqa: F401
 
 __all__ = [
     "PokemonSpecies",
@@ -21,4 +22,5 @@ __all__ = [
     "Card",
     "Profile",
     "Collection",
+    "AppMetadata",
 ]
