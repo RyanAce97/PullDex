@@ -8,6 +8,17 @@ export type { PokemonSpeciesRead } from "./species";
 export type { SpeciesSummaryRead } from "./speciesSummary";
 export type { ProfileRead, ProfileCreate, ProfileRename, ProfileSettingsUpdate } from "./profile";
 export type { BinderCardInfo, BinderSlot, BinderPageResponse } from "./binder";
+export type {
+  Binder,
+  BinderType,
+  BinderCreate,
+  BinderUpdate,
+  PokedexBinderPage,
+  FreePlacementCardInfo,
+  FreePlacementSlot,
+  FreePlacementPage,
+  AnyBinderPage,
+} from "./binder";
 export type { ExportResponse, ImportRequest, ImportResponse, BackupResponse, RestoreRequest, RestoreResponse } from "./data";
 export type { CardDataUpdateStatus, CardDataUpdateStatusRead, RemoteSetInfo } from "./cardData";
 export type { CardDataUpdateResultStatus, CardDataUpdateResultRead } from "./cardData";

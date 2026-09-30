@@ -1,63 +1,124 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useActiveProfile } from "../hooks/useProfiles";
-import { useBinderPage } from "../hooks/useBinder";
+
+import { useBinders, useBinderPageQuery, useAddPlacement, useMovePlacement, useRemovePlacement } from "../hooks/useBinders";
 import { useSpeciesQuery } from "../hooks/useSpeciesQuery";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorState } from "../components/ErrorState";
 import { BinderToolbar } from "../components/BinderToolbar";
+import { BinderControls } from "../components/binder/BinderControls";
+import { FreePlacementGrid } from "../components/binder/FreePlacementGrid";
+import { CardPicker } from "../components/binder/CardPicker";
+import { CardPreviewModal } from "../components/CardPreviewModal";
+import { ApiError } from "../api/client";
 import type { SearchResult } from "../components/BinderSearch";
 import {
-  getBinderPage,
-  setBinderPage,
+  getBinderPage as getBinderPageState,
+  setBinderPage as setBinderPageState,
   setHighlightDex,
   getHighlightDex,
   clearHighlightDex,
 } from "../lib/binderState";
 import { NATIONAL_DEX_COUNT } from "../lib/constants";
-import type { BinderSlot } from "../types";
+import type {
+  BinderSlot,
+  CardSearchResult,
+  FreePlacementPage,
+  FreePlacementSlot,
+  PokedexBinderPage,
+} from "../types";
 
 export function Binder() {
-  const navigate = useNavigate();
-  const { data: profile } = useActiveProfile();
+  const { data: binders, isLoading: bindersLoading, error: bindersError } = useBinders();
 
-  const rows = profile?.binder_rows ?? 5;
-  const cols = profile?.binder_columns ?? 4;
-  const pageSize = rows * cols;
+  const [selectedBinderId, setSelectedBinderId] = useState<number | null>(null);
+
+  // Default the selection to the profile's default binder (or the first).
+  useEffect(() => {
+    if (!binders || binders.length === 0) return;
+    if (selectedBinderId && binders.some((b) => b.id === selectedBinderId)) return;
+    const def = binders.find((b) => b.is_default) ?? binders[0];
+    setSelectedBinderId(def.id);
+  }, [binders, selectedBinderId]);
+
+  const selectedBinder = useMemo(
+    () => binders?.find((b) => b.id === selectedBinderId) ?? null,
+    [binders, selectedBinderId],
+  );
+
+  if (bindersLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-10rem)]">
+        <LoadingSpinner message="Loading binders..." />
+      </div>
+    );
+  }
+  if (bindersError) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-10rem)]">
+        <ErrorState message="Failed to load binders." />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-7rem)]">
+      <div className="flex-shrink-0 space-y-2 pb-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-2xl font-bold">My Binder</h2>
+          <BinderControls
+            binders={binders ?? []}
+            selectedBinderId={selectedBinderId}
+            onSelect={setSelectedBinderId}
+          />
+        </div>
+      </div>
+
+      {selectedBinder && selectedBinder.binder_type === "POKEDEX" && (
+        <PokedexBinderView binderId={selectedBinder.id} rows={selectedBinder.rows} columns={selectedBinder.columns} />
+      )}
+      {selectedBinder && selectedBinder.binder_type === "FREE_PLACEMENT" && (
+        <FreePlacementBinderView binderId={selectedBinder.id} />
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// POKEDEX view (preserves original derived National-Dex binder behaviour)
+// ===========================================================================
+
+function PokedexBinderView({
+  binderId,
+  rows,
+  columns,
+}: {
+  binderId: number;
+  rows: number;
+  columns: number;
+}) {
+  const navigate = useNavigate();
+  const pageSize = rows * columns;
   const totalPages = Math.ceil(NATIONAL_DEX_COUNT / pageSize);
 
-  // Session-persistent page state
-  const [page, setPageState] = useState(() => {
-    const saved = getBinderPage();
-    // Clamp to valid range for current page size
-    return Math.max(1, Math.min(Math.ceil(NATIONAL_DEX_COUNT / pageSize), saved));
+  const [page, setPageInternal] = useState(() => {
+    const saved = getBinderPageState();
+    return Math.max(1, Math.min(totalPages, saved));
   });
-
   const [selectedSlot, setSelectedSlot] = useState<BinderSlot | null>(null);
   const [highlightedDex, setHighlightedDex] = useState<number | null>(() => getHighlightDex());
 
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const binderContainerRef = useRef<HTMLDivElement>(null);
+  const setPage = (newPage: number) => {
+    const clamped = Math.max(1, Math.min(totalPages, newPage));
+    setPageInternal(clamped);
+    setBinderPageState(clamped);
+  };
 
-  // Sync page to module-level state
-  const setPage = useCallback(
-    (newPage: number) => {
-      const clamped = Math.max(1, Math.min(totalPages, newPage));
-      setPageState(clamped);
-      setBinderPage(clamped);
-    },
-    [totalPages],
-  );
-
-  // Reset page when binder size changes (recalculate total pages)
   useEffect(() => {
-    const newTotal = Math.ceil(NATIONAL_DEX_COUNT / pageSize);
-    if (page > newTotal) {
-      setPage(newTotal);
-    }
-  }, [pageSize, page, setPage]);
+    if (page > totalPages) setPage(totalPages);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages]);
 
-  // Clear highlight after animation
   useEffect(() => {
     if (highlightedDex !== null) {
       const timer = setTimeout(() => {
@@ -68,86 +129,22 @@ export function Binder() {
     }
   }, [highlightedDex]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      // Don't navigate while typing in inputs
-      const target = e.target as HTMLElement;
-      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
-
-      // Ctrl+F always focuses search
-      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        return;
-      }
-
-      // Escape closes modal or clears search
-      if (e.key === "Escape") {
-        if (selectedSlot) {
-          setSelectedSlot(null);
-          return;
-        }
-        if (document.activeElement === searchInputRef.current) {
-          searchInputRef.current?.blur();
-          return;
-        }
-        return;
-      }
-
-      // Skip page navigation if focused on an input
-      if (isInput) return;
-
-      switch (e.key) {
-        case "ArrowLeft":
-          e.preventDefault();
-          setPage(page - 1);
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          setPage(page + 1);
-          break;
-        case "Home":
-          e.preventDefault();
-          setPage(1);
-          break;
-        case "End":
-          e.preventDefault();
-          setPage(totalPages);
-          break;
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [page, totalPages, selectedSlot, setPage]);
-
-  // Data queries
-  const { data, isLoading, error } = useBinderPage({ page, page_size: pageSize });
+  const { data, isLoading, error } = useBinderPageQuery(binderId, page);
+  const pokedexData = data && (data as PokedexBinderPage).binder_type === "POKEDEX" ? (data as PokedexBinderPage) : null;
   const { data: speciesList } = useSpeciesQuery();
 
-  // Search result handler
   function handleSearchSelect(result: SearchResult) {
     setPage(result.page);
     setHighlightDex(result.species.national_dex_number);
     setHighlightedDex(result.species.national_dex_number);
   }
 
-  // Calculate dex range for current page
   const startDex = (page - 1) * pageSize + 1;
   const endDex = Math.min(page * pageSize, NATIONAL_DEX_COUNT);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)]">
-      {/* Header + Toolbar */}
-      <div className="flex-shrink-0 space-y-2 pb-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">My Binder</h2>
-          <p className="text-xs text-gray-400">
-            {rows}&times;{cols} layout &bull; {NATIONAL_DEX_COUNT} Pokémon
-          </p>
-        </div>
-
+    <>
+      <div className="flex-shrink-0 pb-3">
         <BinderToolbar
           page={page}
           totalPages={totalPages}
@@ -155,13 +152,12 @@ export function Binder() {
           speciesList={speciesList ?? []}
           onPageChange={setPage}
           onSearchSelect={handleSearchSelect}
-          searchInputRef={searchInputRef}
+          searchInputRef={{ current: null }}
           startDex={startDex}
           endDex={endDex}
         />
       </div>
 
-      {/* Binder content — fills remaining space */}
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner message="Loading binder..." />
@@ -173,31 +169,26 @@ export function Binder() {
         </div>
       )}
 
-      {data && (
-        <div ref={binderContainerRef} className="flex-1 min-h-0 flex items-center justify-center">
+      {pokedexData && (
+        <div className="flex-1 min-h-0 flex items-center justify-center">
           <div
             className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-3 shadow-inner w-full h-full max-h-full"
-            style={{
-              /* Constrain to maintain aspect ratio within available space */
-              maxWidth: `calc((100vh - 12rem) * ${cols * 2.5} / ${rows * 3.5})`,
-            }}
+            style={{ maxWidth: `calc((100vh - 12rem) * ${columns * 2.5} / ${rows * 3.5})` }}
           >
             <div
               className="grid gap-2 h-full"
               style={{
-                gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                gridTemplateColumns: `repeat(${columns}, 1fr)`,
                 gridTemplateRows: `repeat(${rows}, 1fr)`,
               }}
             >
-              {data.slots.map((slot, index) => (
+              {pokedexData.slots.map((slot, index) => (
                 <BinderPocket
                   key={slot.dex_number ?? `pad-${index}`}
                   slot={slot}
                   isHighlighted={slot.dex_number === highlightedDex}
                   onClick={() => {
-                    if (slot.owned && slot.species_id) {
-                      setSelectedSlot(slot);
-                    }
+                    if (slot.owned && slot.species_id) setSelectedSlot(slot);
                   }}
                 />
               ))}
@@ -206,7 +197,6 @@ export function Binder() {
         </div>
       )}
 
-      {/* Card detail modal */}
       {selectedSlot && selectedSlot.species_id && (
         <SlotDetailModal
           slot={selectedSlot}
@@ -217,13 +207,244 @@ export function Binder() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Binder Pocket
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// FREE_PLACEMENT view
+// ===========================================================================
+
+function FreePlacementBinderView({ binderId }: { binderId: number }) {
+  const [page, setPage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
+  const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  const [placementError, setPlacementError] = useState<string | null>(null);
+  const [viewingSlot, setViewingSlot] = useState<FreePlacementSlot | null>(null);
+
+  const { data, isLoading, error } = useBinderPageQuery(binderId, page);
+  const freeData =
+    data && (data as FreePlacementPage).binder_type === "FREE_PLACEMENT"
+      ? (data as FreePlacementPage)
+      : null;
+
+  const addMut = useAddPlacement(binderId);
+  const moveMut = useMovePlacement(binderId);
+  const removeMut = useRemovePlacement(binderId);
+
+  // The last page a user can navigate to. Cards can be placed on a new page
+  // beyond the current maximum, so we always allow going at least one past the
+  // highest occupied page.
+  const maxOccupiedPage = freeData?.total_pages ?? 1;
+  const lastNavigablePage = Math.max(maxOccupiedPage, page);
+
+  function goToPage(target: number) {
+    const clamped = Math.max(1, target);
+    setPage(clamped);
+    setPageInput(String(clamped));
+  }
+
+  // Keep the page input in sync when the page changes programmatically.
+  if (pageInput !== String(page) && document.activeElement?.getAttribute("data-free-page-input") !== "true") {
+    setPageInput(String(page));
+  }
+
+  function handleAddToSlot(slot: number) {
+    setPlacementError(null);
+    setPickerSlot(slot);
+  }
+
+  function handleSelectCard(card: CardSearchResult) {
+    if (pickerSlot === null) return;
+    addMut.mutate(
+      { card_id: card.id, page, slot: pickerSlot },
+      {
+        onSuccess: () => {
+          setPickerSlot(null);
+          setPlacementError(null);
+        },
+        onError: (err) => {
+          setPlacementError(
+            err instanceof ApiError
+              ? ((err.body as { detail?: string })?.detail ?? "Failed to add card.")
+              : "Failed to add card.",
+          );
+        },
+      },
+    );
+  }
+
+  function handleMove(placementId: number, targetSlot: number) {
+    setPlacementError(null);
+    moveMut.mutate(
+      { placementId, page, slot: targetSlot },
+      {
+        onError: (err) => {
+          setPlacementError(
+            err instanceof ApiError
+              ? ((err.body as { detail?: string })?.detail ?? "Failed to move card.")
+              : "Failed to move card.",
+          );
+        },
+      },
+    );
+  }
+
+  function handleRemove(placementId: number) {
+    setPlacementError(null);
+    removeMut.mutate(placementId);
+  }
+
+  return (
+    <>
+      <div className="flex-shrink-0 pb-3 flex items-center gap-3 flex-wrap">
+        {/* Full pager (no Pokémon search — Free Placement holds arbitrary cards) */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => goToPage(1)}
+            disabled={page <= 1}
+            className="p-1.5 text-sm rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="First page"
+            title="First page"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4 2v12l-2-1V3l2-1zm2 6l6-5v10l-6-5z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => goToPage(page - 1)}
+            disabled={page <= 1}
+            className="p-1.5 text-sm rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Previous page"
+            title="Previous page"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M10 2L4 8l6 6V2z" />
+            </svg>
+          </button>
+          <span className="flex items-center gap-1 text-sm text-gray-600">
+            <span className="text-gray-400">Page</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              data-free-page-input="true"
+              value={pageInput}
+              onChange={(e) => setPageInput(e.target.value)}
+              onBlur={() => {
+                const parsed = parseInt(pageInput, 10);
+                if (isNaN(parsed)) {
+                  setPageInput(String(page));
+                } else {
+                  goToPage(parsed);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const parsed = parseInt(pageInput, 10);
+                  if (!isNaN(parsed)) goToPage(parsed);
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              className="w-10 text-center px-1 py-0.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              aria-label="Page number"
+            />
+            <span className="text-gray-400">/ {lastNavigablePage}</span>
+          </span>
+          <button
+            onClick={() => goToPage(page + 1)}
+            className="p-1.5 text-sm rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+            aria-label="Next page"
+            title="Next page"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M6 2l6 6-6 6V2z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => goToPage(lastNavigablePage)}
+            disabled={page >= lastNavigablePage}
+            className="p-1.5 text-sm rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Last page"
+            title="Last page"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M12 2v12l2-1V3l-2-1zm-2 6L4 3v10l6-5z" />
+            </svg>
+          </button>
+        </div>
+        {placementError && (
+          <span className="text-sm text-red-600" role="alert">
+            {placementError}
+          </span>
+        )}
+      </div>
+
+      {isLoading && (
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingSpinner message="Loading binder..." />
+        </div>
+      )}
+      {error && (
+        <div className="flex-1 flex items-center justify-center">
+          <ErrorState message="Failed to load binder." />
+        </div>
+      )}
+
+      {freeData && (
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div
+            className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-3 shadow-inner w-full h-full max-h-full"
+            style={{
+              maxWidth: `calc((100vh - 12rem) * ${freeData.columns * 2.5} / ${freeData.rows * 3.5})`,
+            }}
+          >
+            <FreePlacementGrid
+              page={freeData}
+              onAddToSlot={handleAddToSlot}
+              onMove={handleMove}
+              onRemove={handleRemove}
+              onView={(slot) => setViewingSlot(slot)}
+            />
+          </div>
+        </div>
+      )}
+
+      {pickerSlot !== null && (
+        <CardPicker
+          title={`Add a card to page ${page}, slot ${pickerSlot + 1}`}
+          errorMessage={placementError}
+          onSelect={handleSelectCard}
+          onClose={() => {
+            setPickerSlot(null);
+            setPlacementError(null);
+          }}
+        />
+      )}
+
+      {/* Card viewer/zoom — reuses the shared CardPreviewModal. Works for
+          concept cards too (they still render their Concept styling in the grid). */}
+      {viewingSlot?.card?.image_url && (
+        <CardPreviewModal
+          imageUrl={viewingSlot.card.image_url}
+          alt={viewingSlot.card.pokemon_name ?? "Card"}
+          details={{
+            name: viewingSlot.card.pokemon_name,
+            setName: viewingSlot.card.set_name,
+            setCode: viewingSlot.card.set_code,
+            rarity: viewingSlot.card.rarity,
+            cardNumber: viewingSlot.card.card_number,
+            dexNumber: viewingSlot.card.national_dex_number,
+          }}
+          onClose={() => setViewingSlot(null)}
+        />
+      )}
+    </>
+  );
+}
+
+// ===========================================================================
+// POKEDEX pocket + detail modal (unchanged rendering)
+// ===========================================================================
 
 function BinderPocket({
   slot,
@@ -238,14 +459,10 @@ function BinderPocket({
     ? "ring-2 ring-yellow-400 ring-offset-1 ring-offset-slate-700 animate-pulse"
     : "";
 
-  // Padding slot (beyond 1025)
   if (slot.dex_number === null) {
-    return (
-      <div className="rounded-lg border-2 border-dashed border-slate-600/30 bg-slate-700/20" />
-    );
+    return <div className="rounded-lg border-2 border-dashed border-slate-600/30 bg-slate-700/20" />;
   }
 
-  // State 1: Not owned — empty pocket
   if (!slot.owned) {
     return (
       <div
@@ -259,7 +476,6 @@ function BinderPocket({
     );
   }
 
-  // State 2: Owned, but no card — owned placeholder
   if (!slot.has_card) {
     return (
       <button
@@ -276,7 +492,6 @@ function BinderPocket({
     );
   }
 
-  // State 3: Owned with card — show actual card image
   return (
     <button
       onClick={onClick}
@@ -296,23 +511,15 @@ function BinderPocket({
           <span className="capitalize font-medium leading-tight">{slot.species_name}</span>
         </div>
       )}
-
-      {/* Quantity badge */}
       {slot.total_cards > 1 && (
         <span className="absolute bottom-0.5 right-0.5 bg-indigo-600 text-white text-[8px] font-bold px-1 py-0.5 rounded-full shadow-md min-w-[14px] text-center leading-none">
           &times;{slot.total_cards}
         </span>
       )}
-
-      {/* Hover overlay */}
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded" />
     </button>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Slot Detail Modal
-// ---------------------------------------------------------------------------
 
 function SlotDetailModal({
   slot,
@@ -341,7 +548,6 @@ function SlotDetailModal({
       aria-modal="true"
     >
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
-        {/* Card image or placeholder */}
         <div className="bg-gradient-to-br from-slate-100 to-slate-200 p-6 flex items-center justify-center">
           {slot.has_card && slot.card?.image_url ? (
             <img
@@ -362,7 +568,6 @@ function SlotDetailModal({
           )}
         </div>
 
-        {/* Details */}
         <div className="p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900 capitalize">

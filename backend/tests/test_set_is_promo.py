@@ -117,7 +117,10 @@ class TestMigration:
         )
         conn.commit(); conn.close()
         env = {**os.environ, "DATABASE_URL": url}
-        up = subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"],
+        # Target the is_promo revision explicitly. "head" now points at a later
+        # migration (binders) that requires a full schema; this test only
+        # exercises the is_promo up/down on a minimal sets-only schema.
+        up = subprocess.run([sys.executable, "-m", "alembic", "upgrade", "f2a4b6c8d0e1"],
                             cwd=str(BACKEND_DIR), env=env, capture_output=True, text=True)
         assert up.returncode == 0, up.stderr
         c = sqlite3.connect(str(db_path))

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from app.models.binder import Binder
     from app.models.collection import Collection
 
 
@@ -66,3 +67,7 @@ class Profile(SQLModel, table=True):
     # Relationships
     # ------------------------------------------------------------------
     collection_entries: list["Collection"] = Relationship(back_populates="profile")
+    binders: list["Binder"] = Relationship(
+        back_populates="profile",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )

@@ -36,7 +36,13 @@ function useInvalidateCollectionRelated() {
     queryClient.invalidateQueries({ queryKey: queryKeys.setsSummary });
     queryClient.invalidateQueries({ queryKey: ["recommendations"] });
     queryClient.invalidateQueries({ queryKey: ["collection", "species"] });
+    // Legacy single-binder key.
     queryClient.invalidateQueries({ queryKey: queryKeys.binder });
+    // Multi-binder page queries. Ownership ("owned" vs "concept") in
+    // FREE_PLACEMENT binders is derived from Collection at render time, so a
+    // Collection change must invalidate any cached binder pages for the
+    // change to appear immediately (no navigation required, no timeouts).
+    queryClient.invalidateQueries({ queryKey: queryKeys.binders });
   };
 }
 

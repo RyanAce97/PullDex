@@ -4,7 +4,7 @@ A Pokémon TCG Living Pokédex tracker for collectors who complete their Pokéde
 
 PullDex helps you track which Pokémon species you've collected from opening packs, visualise your collection in a digital binder, and get smart recommendations for which sets to buy next to fill the gaps in your National Pokédex.
 
-**Current version: 0.3.1**
+**Current version: 0.5.0**
 
 ---
 
@@ -30,20 +30,30 @@ PullDex answers the question: *"Which packs should I buy next to fill the most g
 
 ### Digital Binder
 
-- Visual representation of your collection as a physical card binder
-- Fixed National Pokédex positions (#1–#1025) with three slot states: owned card, owned placeholder, or empty pocket
+- Multiple binders per profile — organise your collection across several binders (up to 10)
+- Two binder types:
+  - **Pokédex Binder** — fixed National Pokédex positions (#1–#1025) with three slot states: owned card, owned placeholder, or empty pocket. Exactly one Pokédex Binder per profile.
+  - **Free Placement Binder** — arrange any cards from the catalogue on explicit pages and slots (e.g. "Trades", "Master Collection")
 - Configurable grid layout from 2×2 through 5×5 (default 5×4 = 20 cards per page)
-- Choose which card appears in each Pokémon's binder slot when you own multiple
-- Quantity badges showing total copies per species
+- Binder selector, default-binder handling, and in-page binder management (create, rename, change layout, set default, delete)
+- Choose which card appears in each Pokémon's Pokédex Binder slot when you own multiple ("Show in Pokédex Binder")
+- Quantity badges showing total copies per species (Pokédex Binder)
+
+### Concept Cards (Free Placement)
+
+- Free Placement binders can hold both owned cards and cards you don't own yet
+- Cards you don't currently own appear as **Concept cards** — visually faded with a clear "Concept" indicator
+- Ownership is derived from your Collection: obtaining a card automatically turns its Concept placement into an owned card (and losing ownership reverts it) without changing where it sits in the binder
+- Removing a card from a binder never removes it from your Collection
 
 ### Binder Navigation
 
-- **Pokémon search** — search by name or National Dex number, instantly jump to the correct binder page
-- **Direct page navigation** — editable page number, first/previous/next/last buttons
+- **Pokémon search** (Pokédex Binder) — search by name or National Dex number, instantly jump to the correct binder page
+- **Direct page navigation** — editable page number, first/previous/next/last buttons (both binder types)
 - **Keyboard shortcuts** — arrow keys for page navigation, Ctrl+F to focus search, Home/End for first/last page
 - **Responsive sizing** — binder grid scales to fit the application window while maintaining card aspect ratios
 - **Session persistence** — binder page position is remembered while navigating the app, resets on application restart
-- **Dex range display** — shows which Pokémon numbers are on the current page
+- **Dex range display** (Pokédex Binder) — shows which Pokémon numbers are on the current page
 
 ### Pack Recommendations
 
@@ -86,16 +96,21 @@ PullDex answers the question: *"Which packs should I buy next to fill the most g
 
 ## Digital Binder
 
-The Binder is PullDex's core visualisation — a digital card binder ordered by National Pokédex number.
+The Binder is PullDex's core visualisation — a digital card binder. Each profile can keep several binders (up to 10), selected and managed from a single Binder page.
 
-Each Pokémon has a fixed position in the binder. As you add cards to your collection, they appear in their Pokédex slots. The binder shows at a glance which species you've collected and which are still missing.
+There are two binder types:
+
+- **Pokédex Binder** — ordered by National Pokédex number. Each Pokémon has a fixed position; as you add cards to your collection they appear in their Pokédex slots, showing at a glance which species you've collected and which are still missing. A profile has exactly one Pokédex Binder.
+- **Free Placement Binder** — an arbitrary binder (e.g. "Trades", "Master Collection") where you place any catalogue card on a specific page and slot. A card can appear in multiple binders, but not twice in the same binder, and each slot holds one card.
 
 **Key capabilities:**
 
-- **Search** — type a Pokémon name (e.g. "Pikachu") or Dex number (e.g. "25") to instantly find and jump to any species. Search results show the page number and selecting a result navigates directly there.
+- **Binder management** — a binder selector plus create, rename, change layout, set default, and delete actions. Every profile always keeps at least one binder, so the final remaining binder cannot be deleted; deleting the current default promotes another binder to default automatically.
+- **Search** (Pokédex Binder) — type a Pokémon name (e.g. "Pikachu") or Dex number (e.g. "25") to instantly find and jump to any species.
 - **Page navigation** — type a page number directly, or use first/previous/next/last buttons. Keyboard arrow keys also work.
-- **Card selection** — when you own multiple cards for the same Pokémon, choose which one appears in your binder.
-- **Card preview** — click any card in the binder to see a larger view with set information, rarity, and card number.
+- **Card selection** (Pokédex Binder) — when you own multiple cards for the same Pokémon, choose which one appears via "Show in Pokédex Binder".
+- **Concept cards** (Free Placement) — placed cards you don't own yet appear faded with a "Concept" badge; ownership is derived from your Collection and updates automatically when you obtain or lose the card, without moving the placement. Concept cards are not shown in the Pokédex Binder.
+- **Card preview** — click any card in a binder to see a larger view with set information, rarity, and card number.
 - **Responsive layout** — the binder grid automatically scales to fit your window while keeping cards legible and maintaining proper aspect ratios.
 - **Session memory** — your current binder page is remembered while you navigate elsewhere in the app. Restarting PullDex resets to page 1.
 
@@ -108,7 +123,7 @@ Each Pokémon has a fixed position in the binder. As you add cards to your colle
 Download the latest installer from the release output:
 
 ```
-PullDex Setup 0.3.1.exe
+PullDex Setup 0.5.0.exe
 ```
 
 Run the installer and follow the prompts. PullDex is self-contained — no Python, Node.js, or developer tools are required.
@@ -240,7 +255,7 @@ This orchestrates:
 2. Backend packaging (PyInstaller one-folder)
 3. Electron packaging + NSIS installer
 
-Output: `desktop/release/PullDex Setup 0.3.1.exe`
+Output: `desktop/release/PullDex Setup 0.5.0.exe`
 
 See [docs/DESKTOP.md](docs/DESKTOP.md) for build details and troubleshooting.
 

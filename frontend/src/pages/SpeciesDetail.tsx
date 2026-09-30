@@ -113,7 +113,10 @@ export function SpeciesDetail() {
       try {
         await setBinderCard(entryId);
         queryClient.invalidateQueries({ queryKey: ["collection", "species", numericId, "cards"] });
+        // Legacy + multi-binder page queries — the Pokédex binder's
+        // representative card is derived, so refresh cached binder pages.
         queryClient.invalidateQueries({ queryKey: ["binder"] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.binders });
       } finally {
         setSettingBinderCardId(null);
       }
@@ -296,9 +299,9 @@ function TrackedCardRow({
             onClick={onSetBinderCard}
             disabled={isSettingBinder}
             className="text-[10px] font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50 whitespace-nowrap"
-            title="Show in Binder"
+            title="Show in Pokédex Binder"
           >
-            ★ Binder
+            ★ Pokédex Binder
           </button>
         )}
         <button

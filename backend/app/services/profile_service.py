@@ -70,7 +70,9 @@ def get_profile_by_id(session: Session, profile_id: int) -> Profile | None:
 def create_profile(session: Session, name: str) -> Profile:
     """Create a new profile.
 
-    The new profile is NOT automatically activated.
+    The new profile is NOT automatically activated. A default POKEDEX binder
+    named "Pokédex Binder" is eagerly created for the profile so that every
+    profile always has at least one binder from the moment it exists.
 
     Args:
         name: Display name for the profile.
@@ -95,6 +97,23 @@ def create_profile(session: Session, name: str) -> Profile:
     session.add(profile)
     session.commit()
     session.refresh(profile)
+
+    # Eagerly create the profile's default Pokédex binder, copying the
+    # profile's binder layout defaults. Kept as a local import to avoid a
+    # circular import (binder_service imports profile_service).
+    from app.models.binder import DEFAULT_POKEDEX_BINDER_NAME
+    from app.services.binder_service import create_default_pokedex_binder
+
+    assert profile.id is not None
+    create_default_pokedex_binder(
+        session,
+        profile.id,
+        name=DEFAULT_POKEDEX_BINDER_NAME,
+        rows=profile.binder_rows,
+        columns=profile.binder_columns,
+        sort_order=profile.binder_sort,
+    )
+
     return profile
 
 

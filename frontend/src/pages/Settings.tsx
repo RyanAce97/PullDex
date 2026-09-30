@@ -6,8 +6,8 @@ import {
   useProfiles,
   useRenameProfile,
   useSwitchProfile,
-  useUpdateProfileSettings,
 } from "../hooks/useProfiles";
+import { useBinders, useUpdateBinder } from "../hooks/useBinders";
 import { exportCollection, importCollection, createBackup, restoreBackup } from "../api/data";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorState } from "../components/ErrorState";
@@ -25,7 +25,7 @@ export function Settings() {
       <h2 className="text-2xl font-bold">Settings</h2>
 
       <ProfileSection profiles={profiles} activeProfile={activeProfile} />
-      <BinderSection activeProfile={activeProfile} />
+      <PokedexBinderSection />
       <DataSection />
       <AboutSection />
     </div>
@@ -178,48 +178,117 @@ function ProfileSection({ profiles, activeProfile }: { profiles: ProfileRead[]; 
 }
 
 // ===========================================================================
-// BINDER SECTION
+// POKÉDEX BINDER SECTION
 // ===========================================================================
+//
+// The binder layout (rows/columns) is authoritatively managed per-binder in
+// the Binder management UI. The old profile-level "global binder size" setting
+// is therefore redundant and has been removed. This section now scopes the
+// remaining genuinely-applicable settings to the Pokédex binder specifically,
+// editing that binder directly rather than a profile-wide field.
 
-function BinderSection({ activeProfile }: { activeProfile: ProfileRead }) {
-  const updateSettings = useUpdateProfileSettings();
-  const [rows, setRows] = useState(activeProfile.binder_rows);
-  const [cols, setCols] = useState(activeProfile.binder_columns);
-  const [sort, setSort] = useState(activeProfile.binder_sort);
+function PokedexBinderSection() {
+  const { data: binders, isLoading } = useBinders();
+  const updateBinder = useUpdateBinder();
+
+  const pokedexBinder = binders?.find((b) => b.binder_type === "POKEDEX") ?? null;
+
+  const [rows, setRows] = useState<number | null>(null);
+  const [cols, setCols] = useState<number | null>(null);
+  const [sort, setSort] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // Initialise local state once the binder loads.
+  const effRows = rows ?? pokedexBinder?.rows ?? 5;
+  const effCols = cols ?? pokedexBinder?.columns ?? 4;
+  const effSort = sort ?? pokedexBinder?.sort_order ?? "dex_number";
+
+  if (isLoading) {
+    return (
+      <section className="bg-white rounded-lg border border-gray-200 p-5">
+        <LoadingSpinner message="Loading binder settings..." />
+      </section>
+    );
+  }
+
+  if (!pokedexBinder) {
+    return (
+      <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-2">
+        <h3 className="text-lg font-semibold text-gray-900">Pokédex Binder Settings</h3>
+        <p className="text-sm text-gray-500">No Pokédex binder found for this profile.</p>
+      </section>
+    );
+  }
+
+  const hasChanges =
+    effRows !== pokedexBinder.rows ||
+    effCols !== pokedexBinder.columns ||
+    effSort !== pokedexBinder.sort_order;
+
   const handleSave = () => {
-    updateSettings.mutate(
-      { profileId: activeProfile.id, data: { binder_rows: rows, binder_columns: cols, binder_sort: sort } },
-      { onSuccess: () => { setSaved(true); setTimeout(() => setSaved(false), 2000); } },
+    updateBinder.mutate(
+      {
+        binderId: pokedexBinder.id,
+        data: { rows: effRows, columns: effCols, sort_order: effSort },
+      },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          setRows(null);
+          setCols(null);
+          setSort(null);
+          setTimeout(() => setSaved(false), 2000);
+        },
+      },
     );
   };
-
-  const hasChanges = rows !== activeProfile.binder_rows || cols !== activeProfile.binder_columns || sort !== activeProfile.binder_sort;
 
   return (
     <section className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">Binder</h3>
-        <p className="text-sm text-gray-500 mt-0.5">Configure how cards are arranged in your digital binder.</p>
+        <h3 className="text-lg font-semibold text-gray-900">Pokédex Binder Settings</h3>
+        <p className="text-sm text-gray-500 mt-0.5">
+          These settings apply to your Pokédex binder. Free Placement binder layouts are
+          managed directly in the Binder page via "Manage Binders".
+        </p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Rows</label>
-          <select value={rows} onChange={(e) => setRows(Number(e.target.value))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
-            {[2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
+          <select
+            value={effRows}
+            onChange={(e) => setRows(Number(e.target.value))}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            {[2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Columns</label>
-          <select value={cols} onChange={(e) => setCols(Number(e.target.value))} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
-            {[2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
+          <select
+            value={effCols}
+            onChange={(e) => setCols(Number(e.target.value))}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            {[2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
           </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Sort</label>
-          <select value={sort} onChange={(e) => setSort(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+          <select
+            value={effSort}
+            onChange={(e) => setSort(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
             <option value="dex_number">Dex Number</option>
             <option value="set">Set</option>
             <option value="card_number">Card Number</option>
@@ -231,13 +300,15 @@ function BinderSection({ activeProfile }: { activeProfile: ProfileRead }) {
       <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
-          disabled={!hasChanges || updateSettings.isPending}
+          disabled={!hasChanges || updateBinder.isPending}
           className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
         >
-          {updateSettings.isPending ? "Saving..." : "Save Changes"}
+          {updateBinder.isPending ? "Saving..." : "Save Changes"}
         </button>
         {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
-        <span className="text-xs text-gray-400 ml-auto">Layout: {rows}×{cols} = {rows * cols} cards per page</span>
+        <span className="text-xs text-gray-400 ml-auto">
+          Layout: {effRows}×{effCols} = {effRows * effCols} cards per page
+        </span>
       </div>
     </section>
   );

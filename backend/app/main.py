@@ -18,6 +18,7 @@ from app.routers import sets as sets_router
 from app.routers import species as species_router
 from app.routers import profiles as profiles_router
 from app.routers import binder as binder_router
+from app.routers import binders as binders_router
 from app.routers import data as data_router
 from app.routers import card_data as card_data_router
 
@@ -90,6 +91,7 @@ app.include_router(sets_router.router)
 app.include_router(species_router.router)
 app.include_router(profiles_router.router)
 app.include_router(binder_router.router)
+app.include_router(binders_router.router)
 app.include_router(data_router.router)
 app.include_router(card_data_router.router)
 

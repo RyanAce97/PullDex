@@ -43,8 +43,16 @@ class Settings(BaseSettings):
     # Application                                                          #
     # ------------------------------------------------------------------ #
     app_name: str = "PullDex"
-    app_version: str = "0.4.0"
+    app_version: str = "0.5.0"
     debug: bool = False
+
+    # ------------------------------------------------------------------ #
+    # Binders                                                              #
+    # ------------------------------------------------------------------ #
+    # Maximum number of binders a single profile may have. Enforced by the
+    # binder service on creation. Kept as a single constant so the limit can
+    # be raised later without touching business logic in multiple places.
+    max_binders_per_profile: int = 10
 
     # ------------------------------------------------------------------ #
     # Desktop mode                                                         #
