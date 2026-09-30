@@ -1,0 +1,15 @@
+# Expo / React Native
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+
+# Native builds
+android/
+ios/
+*.apk
+*.aab
+
+# Env
+.env*.local

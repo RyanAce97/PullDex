@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "PullDex",
+    "slug": "pulldex-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "pulldex",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#4f46e5",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
+    "android": {
+      "package": "com.pulldex.mobile",
+      "versionCode": 1
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-splash-screen",
+      "expo-sqlite",
+      "expo-status-bar"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
