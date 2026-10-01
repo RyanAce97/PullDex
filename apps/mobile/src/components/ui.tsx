@@ -86,6 +86,22 @@ export function ProgressBar({ percentage }: { percentage: number }) {
   );
 }
 
+export function StatCard({ label, value }: { label: string; value: string | number }) {
+  const t = useTheme();
+  return (
+    <View style={[stat.card, { backgroundColor: t.card, borderColor: t.border }]}>
+      <Text style={[stat.label, { color: t.textMuted }]}>{label}</Text>
+      <Text style={[stat.value, { color: t.text }]}>{value}</Text>
+    </View>
+  );
+}
+
+const stat = StyleSheet.create({
+  card: { flex: 1, minWidth: 140, borderWidth: 1, borderRadius: 12, padding: 14 },
+  label: { fontSize: 12 },
+  value: { fontSize: 24, fontWeight: "800", marginTop: 2 },
+});
+
 const styles = StyleSheet.create({
   centre: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 6 },
   title: { fontSize: 18, fontWeight: "700", marginTop: 8 },

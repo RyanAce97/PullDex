@@ -18,6 +18,12 @@ import {
   getOwnedCardIds,
   setBinderCard,
   getPokedexBinderPage,
+  getCollectionSummary,
+  getBinderLayout,
+  setBinderLayout,
+  getSetRecommendations,
+  getMissingSpeciesInSet,
+  getRepresentativeCardId,
 } from "../src/db/repository";
 
 async function freshDb(): Promise<SQLiteDatabase> {
@@ -200,6 +206,83 @@ describe("pokedex binder page (derived)", () => {
     const s25 = page.slots.find((s) => s.dex_number === 25)!;
     expect(s25.has_card).toBe(true);
     expect(s25.card?.id).toBe(103);
+  });
+});
+
+describe("dashboard summary", () => {
+  it("reports catalogue + collection counts", async () => {
+    const db = await freshDb();
+    await markCardOwned(db, 100);
+    await markCardOwned(db, 102);
+    const summary = await getCollectionSummary(db);
+    expect(summary.totalCatalogueCards).toBe(4);
+    expect(summary.totalSets).toBe(2);
+    expect(summary.promoSets).toBe(1);
+    expect(summary.ownedCardEntries).toBe(2);
+    expect(summary.progress.ownedSpecies).toBe(2); // bulbasaur + pikachu
+  });
+});
+
+describe("binder layout persistence (Settings)", () => {
+  it("defaults to 5x4 and persists a new layout", async () => {
+    const db = await freshDb();
+    expect(await getBinderLayout(db)).toEqual({ rows: 5, columns: 4 });
+    await setBinderLayout(db, 3, 3);
+    expect(await getBinderLayout(db)).toEqual({ rows: 3, columns: 3 });
+  });
+
+  it("clamps out-of-range dimensions to 2..5", async () => {
+    const db = await freshDb();
+    await setBinderLayout(db, 9, 1);
+    expect(await getBinderLayout(db)).toEqual({ rows: 5, columns: 2 });
+  });
+});
+
+describe("representative binder card id", () => {
+  it("returns null until chosen, then the selected card (no duplicate)", async () => {
+    const db = await freshDb();
+    await markCardOwned(db, 102);
+    await markCardOwned(db, 103);
+    expect(await getRepresentativeCardId(db, 25)).toBeNull();
+    await setBinderCard(db, 103);
+    expect(await getRepresentativeCardId(db, 25)).toBe(103);
+    await setBinderCard(db, 102); // switching must not leave two representatives
+    expect(await getRepresentativeCardId(db, 25)).toBe(102);
+  });
+});
+
+describe("recommendations (offline, desktop-parity ranking)", () => {
+  it("non-promo pool ranks sets by missing species", async () => {
+    const db = await freshDb();
+    const { totalMissing, recommendations } = await getSetRecommendations(db, false, 10);
+    expect(totalMissing).toBe(1025);
+    expect(recommendations.length).toBe(1);
+    expect(recommendations[0].set_name).toBe("Scarlet & Violet");
+    expect(recommendations[0].missing_species_count).toBe(3); // bulba/char/pika
+  });
+
+  it("promos pool returns only promo sets", async () => {
+    const db = await freshDb();
+    const { recommendations } = await getSetRecommendations(db, true, 10);
+    expect(recommendations.length).toBe(1);
+    expect(recommendations[0].set_name).toBe("SV Black Star Promos");
+    expect(recommendations[0].missing_species_count).toBe(1); // only pikachu
+  });
+
+  it("owning all a set's species removes it from recommendations", async () => {
+    const db = await freshDb();
+    await markSpeciesOwned(db, 1);
+    await markSpeciesOwned(db, 4);
+    await markSpeciesOwned(db, 25);
+    const { recommendations } = await getSetRecommendations(db, false, 10);
+    expect(recommendations.length).toBe(0);
+  });
+
+  it("drill-down lists missing species in a set in dex order", async () => {
+    const db = await freshDb();
+    await markSpeciesOwned(db, 1); // own bulbasaur
+    const missing = await getMissingSpeciesInSet(db, 1);
+    expect(missing.map((s) => s.name)).toEqual(["charmander", "pikachu"]);
   });
 });
 

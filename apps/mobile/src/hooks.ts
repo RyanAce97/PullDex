@@ -10,7 +10,15 @@ import type { SQLiteDatabase } from "expo-sqlite";
 import type { CollectionProgress, SpeciesOwnership } from "@pulldex/shared";
 
 import { useDatabase } from "./db/provider";
-import { getProgress, getSpeciesOwnership } from "./db/repository";
+import {
+  getProgress,
+  getSpeciesOwnership,
+  getCollectionSummary,
+  getBinderLayout,
+  setBinderLayout,
+  type CollectionSummary,
+  type BinderLayout,
+} from "./db/repository";
 
 // A trivial global "data version" bumped on any collection mutation so all
 // mounted hooks re-fetch. Keeps ownership-derived UI consistent without a
@@ -78,6 +86,23 @@ export function useProgress() {
   return progress;
 }
 
+export function useSummary() {
+  const db = useDatabase();
+  const version = useDataVersion();
+  const [summary, setSummary] = useState<CollectionSummary | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!db) return;
+    getCollectionSummary(db).then((s) => !cancelled && setSummary(s));
+    return () => {
+      cancelled = true;
+    };
+  }, [db, version]);
+
+  return summary;
+}
+
 /** Run a mutation against the DB, then bump the data version to refresh views. */
 export function useMutation() {
   const db = useDatabase();
@@ -89,4 +114,30 @@ export function useMutation() {
     },
     [db],
   );
+}
+
+export function useBinderLayout() {
+  const db = useDatabase();
+  const version = useDataVersion();
+  const [layout, setLayout] = useState<BinderLayout | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!db) return;
+    getBinderLayout(db).then((l) => !cancelled && setLayout(l));
+    return () => {
+      cancelled = true;
+    };
+  }, [db, version]);
+
+  const save = useCallback(
+    async (rows: number, columns: number) => {
+      if (!db) return;
+      await setBinderLayout(db, rows, columns);
+      bumpDataVersion();
+    },
+    [db],
+  );
+
+  return { layout, save };
 }

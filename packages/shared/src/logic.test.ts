@@ -7,6 +7,7 @@ import {
   pokedexPageDexRange,
   pokedexTotalPages,
   rankSpeciesSearch,
+  rankSetRecommendations,
   NATIONAL_DEX_COUNT,
 } from "./index";
 import type { CardWithContext, PokedexSlotInput, PokemonSpecies, SpeciesOwnership } from "./index";
@@ -201,5 +202,65 @@ describe("buildPokedexBinderPage", () => {
     const pageData = buildPokedexBinderPage(new Map(), 1, 20);
     expect(pageData.total_pages).toBe(52);
     expect(pageData.total_species).toBe(NATIONAL_DEX_COUNT);
+  });
+});
+
+describe("rankSetRecommendations", () => {
+  function agg(overrides: Partial<import("./index").SetAggregate>): import("./index").SetAggregate {
+    return {
+      set_id: 1,
+      api_set_id: "sv1",
+      set_name: "Set",
+      series: "SV",
+      release_date: "2023-01-01",
+      is_promo: false,
+      total_cards_in_set: 100,
+      total_species_in_set: 50,
+      missing_species_count: 10,
+      ...overrides,
+    };
+  }
+
+  it("excludes sets with zero missing species", () => {
+    const recs = rankSetRecommendations([agg({ missing_species_count: 0 })], 100);
+    expect(recs).toHaveLength(0);
+  });
+
+  it("orders by missing DESC, then total_cards ASC, then release_date DESC", () => {
+    const recs = rankSetRecommendations(
+      [
+        agg({ set_id: 1, missing_species_count: 5, total_cards_in_set: 100 }),
+        agg({ set_id: 2, missing_species_count: 10, total_cards_in_set: 200 }),
+        agg({ set_id: 3, missing_species_count: 10, total_cards_in_set: 100 }), // ties #2 on missing, fewer cards -> ranks first
+      ],
+      100,
+    );
+    expect(recs.map((r) => r.set_id)).toEqual([3, 2, 1]);
+    expect(recs[0].rank).toBe(1);
+  });
+
+  it("breaks total_cards ties by release_date DESC", () => {
+    const recs = rankSetRecommendations(
+      [
+        agg({ set_id: 1, missing_species_count: 4, total_cards_in_set: 100, release_date: "2020-01-01" }),
+        agg({ set_id: 2, missing_species_count: 4, total_cards_in_set: 100, release_date: "2024-01-01" }),
+      ],
+      100,
+    );
+    expect(recs.map((r) => r.set_id)).toEqual([2, 1]);
+  });
+
+  it("computes coverage% and density% to one decimal", () => {
+    const recs = rankSetRecommendations(
+      [agg({ missing_species_count: 5, total_cards_in_set: 40 })],
+      200,
+    );
+    expect(recs[0].coverage_percentage).toBe(2.5); // 5/200*100
+    expect(recs[0].missing_species_density_percentage).toBe(12.5); // 5/40*100
+  });
+
+  it("respects the limit", () => {
+    const many = Array.from({ length: 15 }, (_, i) => agg({ set_id: i, missing_species_count: 20 - i }));
+    expect(rankSetRecommendations(many, 100, 10)).toHaveLength(10);
   });
 });

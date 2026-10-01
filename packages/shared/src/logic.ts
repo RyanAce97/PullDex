@@ -15,6 +15,8 @@ import type {
   PokedexBinderPage,
   PokedexBinderSlot,
   PokemonSpecies,
+  SetAggregate,
+  SetRecommendation,
   SpeciesOwnership,
 } from "./types";
 
@@ -186,4 +188,61 @@ function emptyPokedexSlot(dexNumber: number | null): PokedexBinderSlot {
     card: null,
     total_cards: 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Recommendations (pure ranking — mirrors desktop recommendation_service)
+// ---------------------------------------------------------------------------
+
+/**
+ * Rank set aggregates into recommendations, replicating the desktop ordering
+ * and coverage/density formulas exactly:
+ *
+ *   order:  missing_species_count DESC, total_cards_in_set ASC, release_date DESC
+ *   coverage% = missing_species_count / total_missing * 100  (1 dp)
+ *   density%  = missing_species_count / total_cards_in_set * 100 (1 dp)
+ *
+ * Only sets with >=1 missing species are included. Caller filters the pool by
+ * promo status before passing aggregates in (Sets vs Promos), matching desktop.
+ */
+export function rankSetRecommendations(
+  aggregates: SetAggregate[],
+  totalMissing: number,
+  limit = 10,
+): SetRecommendation[] {
+  const eligible = aggregates.filter((a) => a.missing_species_count > 0);
+
+  eligible.sort((a, b) => {
+    if (b.missing_species_count !== a.missing_species_count) {
+      return b.missing_species_count - a.missing_species_count;
+    }
+    if (a.total_cards_in_set !== b.total_cards_in_set) {
+      return a.total_cards_in_set - b.total_cards_in_set;
+    }
+    // release_date DESC (nulls last)
+    const ra = a.release_date ?? "";
+    const rb = b.release_date ?? "";
+    if (ra === rb) return 0;
+    return rb > ra ? 1 : -1;
+  });
+
+  return eligible.slice(0, limit).map((a, i) => ({
+    rank: i + 1,
+    set_id: a.set_id,
+    api_set_id: a.api_set_id,
+    set_name: a.set_name,
+    series: a.series,
+    release_date: a.release_date,
+    missing_species_count: a.missing_species_count,
+    total_species_in_set: a.total_species_in_set,
+    total_cards_in_set: a.total_cards_in_set,
+    coverage_percentage:
+      totalMissing > 0 ? round1((a.missing_species_count / totalMissing) * 100) : 0,
+    missing_species_density_percentage:
+      a.total_cards_in_set > 0 ? round1((a.missing_species_count / a.total_cards_in_set) * 100) : 0,
+  }));
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
 }

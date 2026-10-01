@@ -4,7 +4,7 @@ import { Text, type ColorValue } from "react-native";
 import { useTheme } from "../../src/theme";
 
 function TabIcon({ emoji, color }: { emoji: string; color: ColorValue }) {
-  return <Text style={{ fontSize: 20, color }}>{emoji}</Text>;
+  return <Text style={{ fontSize: 18, color }}>{emoji}</Text>;
 }
 
 export default function TabsLayout() {
@@ -17,6 +17,7 @@ export default function TabsLayout() {
         tabBarStyle: { backgroundColor: t.card, borderTopColor: t.border },
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.textMuted,
+        tabBarLabelStyle: { fontSize: 10 },
       }}
     >
       <Tabs.Screen
@@ -28,11 +29,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="show"
+        name="pokedex"
         options={{
-          title: "Card Show Mode",
-          tabBarLabel: "Card Show",
-          tabBarIcon: ({ color }) => <TabIcon emoji="⚡" color={color} />,
+          title: "Pokédex",
+          tabBarIcon: ({ color }) => <TabIcon emoji="🔴" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -43,17 +43,25 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="pokedex"
-        options={{
-          title: "Pokédex",
-          tabBarIcon: ({ color }) => <TabIcon emoji="🔴" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="binder"
         options={{
           title: "Binder",
           tabBarIcon: ({ color }) => <TabIcon emoji="📔" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="recommendations"
+        options={{
+          title: "Recommendations",
+          tabBarLabel: "Recs",
+          tabBarIcon: ({ color }) => <TabIcon emoji="⭐" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => <TabIcon emoji="⚙️" color={color} />,
         }}
       />
     </Tabs>
