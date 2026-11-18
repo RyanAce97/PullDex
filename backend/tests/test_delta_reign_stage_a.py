@@ -118,7 +118,7 @@ def _file_backed_fetchers():
 #   * one pre-existing reference set + card (to prove nothing unrelated is
 #     touched),
 #   * user data (profile + collection) to prove it is never modified,
-#   * card_data_version = 3 (the version prior to the me6 bump to 4).
+#   * card_data_version = 3 (the version prior to the me6 corrections).
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(name="db")
@@ -255,7 +255,7 @@ def test_manifest_sha256_matches_me6_bytes():
         f"manifest me6 sha256 {entry['sha256'][:12]}… != file {actual[:12]}…"
     )
     assert entry["card_count"] == 141
-    assert manifest["data_version"] == 4
+    assert manifest["data_version"] == 5
 
 
 # ===========================================================================
@@ -289,8 +289,8 @@ class TestDeltaReignUpdate:
         # --- updater reports success ---
         assert result.status is UpdateResultStatus.UPDATED, result.error
         assert result.success is True
-        assert result.local_data_version == 4
-        assert result.remote_data_version == 4
+        assert result.local_data_version == 5
+        assert result.remote_data_version == 5
 
         # --- exactly one new set, exactly 141 new cards ---
         assert result.sets_created == 1
@@ -309,7 +309,7 @@ class TestDeltaReignUpdate:
         # me6 set present with 141 cards
         me6_set = next((s for s in after["sets"] if s["api_set_id"] == "me6"), None)
         assert me6_set is not None
-        assert me6_set["name"] == "Mega Evolution\u2014Delta Reign"
+        assert me6_set["name"] == "Delta Reign"
         assert me6_set["is_promo"] == 0  # False
         me6_set_id = me6_set["id"]
         me6_cards = [c for c in after["cards"] if c["set_id"] == me6_set_id]
@@ -330,7 +330,7 @@ class TestDeltaReignUpdate:
                 assert c["pokemon_species_id"] is not None, f"card {num} missing species FK"
 
         # local card-data version becomes 4
-        assert get_local_card_data_version(Session(engine)) == 4
+        assert get_local_card_data_version(Session(engine)) == 5
 
         # --- nothing deleted; only me6 added ---
         # The fixture pre-seeded the other 179 sets, so after the update there
@@ -376,6 +376,6 @@ class TestDeltaReignUpdate:
         finally:
             s2.close()
 
-        # Remote data_version (4) == local (now 4) -> already up to date.
+        # Remote data_version (5) == local (now 5) -> already up to date.
         assert r2.status is UpdateResultStatus.ALREADY_UP_TO_DATE
         assert _snapshot(db_path) == after_first

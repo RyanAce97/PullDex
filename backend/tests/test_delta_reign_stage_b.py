@@ -3,7 +3,7 @@
 Verifies the GENUINE ``CardDataUpdater`` can upgrade a realistic existing
 installation — 179 sets / card_data_version 3, seeded from the ACTUAL local
 PullDex-Card-Data set files (everything except me6) — up to the 180-set /
-version-4 catalogue, adding Delta Reign and preserving ALL existing user data
+version-5 catalogue, adding Delta Reign and preserving ALL existing user data
 (profiles, collection entries, binders, binder placements) byte-for-byte.
 
 No network: the manifest and set-file fetchers are injected and read the real
@@ -313,7 +313,7 @@ class TestDeltaReignUpgrade:
             ).fetchone()
             assert me6_row is not None
             me6_set_id, me6_name, me6_promo = me6_row
-            assert me6_name == "Mega Evolution\u2014Delta Reign"
+            assert me6_name == "Delta Reign"
             assert me6_promo == 0
             # 5. me6 has exactly 141 cards
             me6_card_rows = conn.execute(
@@ -323,7 +323,7 @@ class TestDeltaReignUpgrade:
             # 6. card IDs match me6.json exactly
             assert {r[0] for r in me6_card_rows} == _me6_card_ids()
             # 7. version now 4
-            assert get_local_card_data_version(Session(engine)) == 4
+            assert get_local_card_data_version(Session(engine)) == 5
         finally:
             conn.close()
 
